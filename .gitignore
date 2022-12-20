@@ -1,0 +1,9 @@
+NCOC_*
+*.bak
+*~
+.*
+*.vo
+*.vok
+*.vos
+*.glob
+!.gitignore

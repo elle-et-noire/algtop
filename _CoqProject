@@ -1,0 +1,4 @@
+-R theories/ algtop
+
+theories/setoid.v
+theories/group.v
