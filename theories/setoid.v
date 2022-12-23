@@ -20,12 +20,12 @@ Notation "[  A  |  ==:  P  ]" := (@Build_Setoid A P _)
 Notation "[  ==:  P  ]" := [_ | ==: P]
   (at level 0, P at level 99).
 
-Notation "( == 'in' A )" := (equal A)
-  (at level 0, format "( == 'in' A )").
-Notation "(==)" := (== in _).
-Notation "x == y 'in' A" := (equal A x y)
+Notation "( == '@' A )" := (equal A)
+  (at level 0, format "( == '@' A )").
+Notation "(==)" := (== @ _).
+Notation "x == y @ A" := (equal A x y)
   (at level 70, y at next level, no associativity).
-Notation "x == y" := (x == y in _)
+Notation "x == y" := (x == y @ _)
   (at level 70, no associativity) : setoid_scope.
 
 Program Definition PropSetoid := [ ==: iff ].
@@ -126,21 +126,20 @@ Canonical Structure EnsembleSetoid.
 Program Definition trivEns (X : Setoid) := [ _ : X | True ].
 Next Obligation. now intros x. Defined.
 
-Program Definition Image {X Y} (f : Map X Y) (A : Ensemble X) :=
+Program Definition imens {X Y} (f : Map X Y) (A : Ensemble X) :=
   [ y | exists a : A, y == f a ].
 Next Obligation.
   intros x y Exy. split; intros [a Exfa]; exists a;
   try rewrite <-Exfa; try rewrite Exy; trivial; reflexivity.
 Defined.
 
-Program Definition Preimage {X Y} (f : Map X Y) (B : Ensemble Y) :=
+Program Definition preimens {X Y} (f : Map X Y) (B : Ensemble Y) :=
   [ x | B (f x) ].
 Next Obligation. intros x y Exy. now rewrite Exy. Defined.
 
 Class Injective {A B : Setoid} (f : A -> B) := {
   inj : forall x y : A, f x == f y -> x == y
 }.
-(* Arguments inj {_} {_} _ {_}. *)
 
 Class Surjective {A B : Setoid} (f : A -> B) := {
   surj : forall {y : B}, exists x : A, y == (f x)
@@ -174,8 +173,46 @@ Proof. intros x y Heq. now rewrite Heq. Qed.
 Lemma sval_inj `{P : Map X Prop} : Injective (@sval _ P).
 Proof. split; intuition. Qed.
 #[global]
-Existing Instance sval_inj. (* doesnt work. *)
+Existing Instance sval_inj.
 
+Structure Binmap (X Y Z : Setoid) := {
+  bmapfun :> X -> Y -> Z;
+  bmapprf :> Proper ((==) ==> (==) ==> (==)) bmapfun
+}.
+#[global]
+Existing Instance bmapprf.
+
+Definition paireq {A B : Setoid} (ab1 ab2 : A * B) :=
+  fst ab1 == fst ab2 /\ snd ab1 == snd ab2.
+Program Definition PairSetoid (X Y : Setoid) :=
+  [ X * Y | ==: paireq ].
+Next Obligation.
+  split.
+  - intros p. split; now simpl.
+  - intros p1 p2 [E1 E2]. now split.
+  - intros p1 p2 p3 [E1 E2] [E3 E4]. split;
+    now (rewrite E1 || rewrite E2).
+Defined.
+Canonical Structure PairSetoid.
+
+Program Definition pairens {X Y} (A : Ensemble X) (B : Ensemble Y)
+  := [ p : (X * Y)%type | A (fst p) /\ B (snd p) ].
+Next Obligation.
+  intros p1 p2 [E1 E2]. split; intros [Ap Bp]; split;
+  now (rewrite <-E1 || rewrite <-E2 ||
+    rewrite E1 || rewrite E2).
+Defined.
+Notation "[  A  ,  B  ]" := (@pairens _ _ A B)
+  (at level 0, A, B at level 99, no associativity) : setoid_scope.
+
+Program Definition bmap_pmap `(f : Binmap X Y Z)
+  : Map (X * Y)%type Z := map p => f (fst p) (snd p).
+Next Obligation.
+  intros p1 p2 [E1 E2]. now rewrite E1, E2.
+Defined.
+
+Program Definition imens2 `(f : Binmap X Y Z) (A : Ensemble X)
+  (B : Ensemble Y) :=  imens (bmap_pmap f) [A, B].
 
 Close Scope setoid_scope.
 
