@@ -47,7 +47,7 @@ Program Definition MapSetoid (X Y : Setoid) :=
   [ Map X Y | ==: ((==) ==> (==))%signature ].
 Next Obligation.
   split.
-  - intros f x y Heq. now rewrite Heq. 
+  - intros f x y Heq. now apply mapprf.
   - intros f g Heq1 x y Heq2. now rewrite (Heq1 y x (symmetry Heq2)).
   - intros f g h Heq1 Heq2 x y Heq3. 
     now rewrite (Heq1 x y Heq3), <-(Heq2 x y Heq3), Heq3.
@@ -73,9 +73,14 @@ Coercion sval `{P : Map X Prop} (e : sigS P) :=
 
 Definition sigSSetoid `(P : Map X Prop) :=
   @InducedSetoid (sigS P) X sval.
-Definition incluS `(P : Map X Prop) : Map (sigSSetoid P) X := 
+Definition incluS `{P : Map X Prop} : Map (sigSSetoid P) X := 
   @indsetoid_map (sigS P) X sval.
 Canonical Structure sigSSetoid.
+
+Lemma sval_ismap `{P : Map X Prop} : Proper ((==) ==> (==)) (@sval _ P).
+Proof. now destruct (@incluS _ P). Qed.
+#[global]
+Existing Instance sval_ismap.
 
 Structure Ensemble (X : Setoid) : Type := {
   ensconf :> Map X Prop;
@@ -104,7 +109,7 @@ Existing Instance included_trans.
 Program Definition inclumap {X} {A B : Ensemble X} (H : A <= B)
   : Map A B := map x => (@existS _ _ (sval x) _).
 Next Obligation. apply H. Defined.
-Next Obligation. intros x y E. now simpl. Defined.
+Next Obligation. now intros x y E. Defined.
 
 Definition enseq {X} (A B : Ensemble X) := A <= B /\ B <= A.
 Program Definition EnsembleSetoid (X : Setoid) := [ ==: @enseq X].
@@ -132,17 +137,17 @@ Program Definition Preimage {X Y} (f : Map X Y) (B : Ensemble Y) :=
   [ x | B (f x) ].
 Next Obligation. intros x y Exy. now rewrite Exy. Defined.
 
-Class Injective `(f : Map A B) := {
-  inj : forall {x y : A}, f x == f y -> x == y
+Class Injective {A B : Setoid} (f : A -> B) := {
+  inj : forall x y : A, f x == f y -> x == y
 }.
-Arguments inj {_} {_} _ {_}.
+(* Arguments inj {_} {_} _ {_}. *)
 
-Class Surjective `(f : Map A B) := {
+Class Surjective {A B : Setoid} (f : A -> B) := {
   surj : forall {y : B}, exists x : A, y == (f x)
 }.
 Arguments surj {_} {_} _ {_}.
 
-Class Bijective `(f: Map A B) := {
+Class Bijective {A B : Setoid} (f : A -> B) := {
   bij_inj :> Injective f;
   bij_surj :> Surjective f
 }.
@@ -158,14 +163,19 @@ Notation "g 'o' f" := (@mapcomp _ _ _ f g)
 Lemma mapcomp_reduc : forall {X Y Z} {f g: Map Y Z} {h: Map X Y},
   Surjective h -> f o h == g o h -> f == g.
 Proof.
-  intros X Y Z f g h [Sh] Heq. simpl. intros x y Heq1.
-  rewrite Heq1. destruct (Sh y) as [x0 Heq2].
-  rewrite Heq2. now apply Heq.
+  intros X Y Z f g h [Sh] Heq x y Heq1. rewrite Heq1.
+  destruct (Sh y) as [x0 Heq2]. rewrite Heq2. now apply Heq.
 Qed.
 
 Lemma mapcomp_assoc {X Y Z W} {f: Map Z W} {g: Map Y Z} {h: Map X Y} :
   (f o g) o h == f o g o h.
-Proof. intros. simpl. intros x y Heq. now rewrite Heq. Qed.
+Proof. intros x y Heq. now rewrite Heq. Qed.
+
+Lemma sval_inj `{P : Map X Prop} : Injective (@sval _ P).
+Proof. split; intuition. Qed.
+#[global]
+Existing Instance sval_inj. (* doesnt work. *)
+
 
 Close Scope setoid_scope.
 

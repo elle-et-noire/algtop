@@ -169,9 +169,8 @@ Section GroupTheory.
   Qed.
 End GroupTheory.
 
-
 Class IsHomomorph {X Y} {G : Group X} {H : Group Y} (f : Map G H) := {
-  morph : forall {x y : G}, f (x * y) == (f x) * (f y)
+  morph : forall x y : G, f (x * y) == (f x) * (f y) in H
 }.
 
 Structure Homomorph {X Y} (G : Group X) (H : Group Y) := {
@@ -207,29 +206,21 @@ Notation "G <~> H" := (@Isomorph _ _ G H)
 Program Definition homcomp {X Y Z} {G1 : Group X} {G2 : Group Y}
   {G3 : Group Z} (f: G1 ~~> G2) (g: G2 ~~> G3) : G1 ~~> G3
   := hom on (g o f).
-Next Obligation.
-  split. intros x y. destruct f as [f Homf].
-  destruct g as [g Homg]. simpl.
-  assert (g (f x * f y) == g (f x) * g (f y)).
-  { now rewrite morph. } simpl in H. rewrite <-H.
-  apply (mapprf g). apply morph.
-Defined.
+Next Obligation. split. intros x y. simpl. now rewrite 2!morph. Defined.
 Notation "g '<o~' f" := (homcomp f g)
   (at level 60, right associativity) : group_scope.
 
 Program Definition isocomp {X Y Z} {G1 : Group X} {G2 : Group Y}
-{G3 : Group Z} (f: G1 <~> G2) (g: G2 <~> G3) : G1 <~> G3
+  {G3 : Group Z} (f: G1 <~> G2) (g: G2 <~> G3) : G1 <~> G3
   := iso on (g <o~ f).
 Next Obligation.
   split; split; simpl.
-  - intros x y Heq. simpl in Heq. 
-    now apply (inj g), (inj f) in Heq.
-  - intros y. destruct (surj g y). destruct (surj f x).
-    exists x0. simpl in H. rewrite H. now apply (mapprf g).
+  - intros x y Heq. now apply inj, inj, inj in Heq.
+  - intros z. destruct (surj g z) as [y E1]. 
+    destruct (surj f y) as [x E2]. exists x. now rewrite E1, E2.
 Defined.
 Notation "g '<o>' f" := (isocomp f g)
   (at level 60, right associativity) : group_scope.
-
 
 Section HomTheory.
   Context {X Y} {G : Group X} {H : Group Y} {f: Homomorph G H}.
@@ -240,11 +231,11 @@ Section HomTheory.
 
   Lemma morphV : forall x, f (!x) == !(f x).
   Proof.
-    intros x.  rewrite <-(identr (!(f x))).
+    intros x. rewrite <-(identr (!(f x))).
     apply mulTg. now rewrite <-morph, invr, morph1.
   Qed.
 End HomTheory.
 
 
-(* Close Scope group_scope.
-Close Scope setoid_scope. *)
+Close Scope group_scope.
+Close Scope setoid_scope.
