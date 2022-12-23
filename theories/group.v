@@ -236,6 +236,24 @@ Section HomTheory.
   Qed.
 End HomTheory.
 
+Class IsSubgof {X : Setoid} (G H : Group X) := {
+  subsupp :> H <= G;
+  fermM : forall {x y : G}, H x -> H y -> H (x * y);  
+  fermV : forall {x : G}, H x -> H (!x);
+  ferm1: H (1 in G)
+}.
+
+Notation "H '<~' G" := (IsSubgof G H)
+  (at level 70, no associativity) : group_scope.
+
+Definition conjg `{G : Group X} (g h : G) := g * h * !g.
+Notation "h ^ g" := (@conjg _ _ g h) : group_scope.
+
+Class IsNormalSubgroup {X} (G H : Group X) := {
+  normal : forall {g h : G}, H h -> H (h ^ g)
+}.
+
+
 
 Close Scope group_scope.
 Close Scope setoid_scope.
