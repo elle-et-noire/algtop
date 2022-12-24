@@ -227,6 +227,23 @@ Section HomTheory.
   Qed.
 End HomTheory.
 
+Lemma ensmul_assoc {G : GroupS} : Associative (imens2 ( * in G )).
+Proof.
+  split. intros A B C. split; intros [g1 [a [g2 [H [H1 H2]]]]]; simpl.
+  + destruct H1 as [b [c [Bb [Cc E1]]]]. exists (a * b), c. split;
+    (exists a, b || rewrite <-assoc, <- E1); intuition.
+  + destruct H as [a0 [b [Aa0 [Bb E]]]]. exists a0, (b * g2).
+    intuition; (exists b, g2 || rewrite assoc, <-E); intuition.
+Qed.
+
+Lemma ensmulg1 {G : GroupS} : RIdentical (imens2 ( * in G )) [ens 1].
+Proof.
+  split. intros A. split.
+  + intros [a [a0 [i [Aa [I E]]]]]. simpl. now rewrite E, I, identr.
+  + intros [a Aa]. exists a, 1. simpl. intuition. now rewrite identr.
+Qed.
+
+
 Class IsGroup {X : GroupS} (G : Ensemble X) := {
   fermM : forall {x y : G}, G (x * y);  
   fermV : forall {x : G}, G (!x);

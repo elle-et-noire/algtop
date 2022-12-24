@@ -19,13 +19,12 @@ Notation "[  A  |  ==:  P  ]" := (@Build_Setoid A P _)
   (at level 0, A, P at level 99).
 Notation "[  ==:  P  ]" := [_ | ==: P]
   (at level 0, P at level 99).
-
-Notation "( == '@' A )" := (equal A)
-  (at level 0, format "( == '@' A )").
-Notation "(==)" := (== @ _).
-Notation "x == y @ A" := (equal A x y)
+Notation "( == 'in' A )" := (equal A)
+  (at level 0, format "( == 'in' A )").
+Notation "(==)" := (== in _).
+Notation "x == y 'in' A" := (equal A x y)
   (at level 70, y at next level, no associativity).
-Notation "x == y" := (x == y @ _)
+Notation "x == y" := (x == y in _)
   (at level 70, no associativity) : setoid_scope.
 
 Program Definition PropSetoid := [ ==: iff ].
@@ -54,6 +53,18 @@ Next Obligation.
 Defined.
 Canonical Structure MapSetoid.
 
+Structure Binmap (X Y Z : Setoid) := {
+  bmapfun :> X -> Y -> Z;
+  bmapprf :> Proper ((==) ==> (==) ==> (==)) bmapfun
+}.
+#[global]
+Existing Instance bmapprf.
+
+Notation "'bmap' 'by' f" := (@Build_Binmap _ _ _ f _)
+  (at level 200, no associativity).
+Notation "'bmap' x y => m" := (bmap by fun x y => m)
+  (at level 200, x binder, y binder, no associativity).
+
 Program Definition InducedSetoid {X} {Y : Setoid} (f : X -> Y) :=
   [ X | ==: fun x1 x2 : X => f x1 == f x2].
 Next Obligation.
@@ -73,76 +84,130 @@ Coercion sval `{P : Map X Prop} (e : sigS P) :=
 
 Definition sigSSetoid `(P : Map X Prop) :=
   @InducedSetoid (sigS P) X sval.
-Definition incluS `{P : Map X Prop} : Map (sigSSetoid P) X := 
-  @indsetoid_map (sigS P) X sval.
 Canonical Structure sigSSetoid.
-
-Lemma sval_ismap `{P : Map X Prop} : Proper ((==) ==> (==)) (@sval _ P).
-Proof. now destruct (@incluS _ P). Qed.
-#[global]
-Existing Instance sval_ismap.
+Definition inclS `{P : Map X Prop} : Map (sigS P) X := 
+  @indsetoid_map (sigS P) X sval.
+Canonical Structure inclS.
 
 Structure Ensemble (X : Setoid) : Type := {
   ensconf :> Map X Prop;
 }.
 
-Coercion ens_setoid `(A : Ensemble X) := sigSSetoid (ensconf A).
+Notation "[  x  :  A  |  P  ]" :=
+  (@Build_Ensemble A (map x => P))
+  (at level 0, x at level 99) : setoid_scope.
+Notation "[  x  |  P  ]" := [ x : _ | P ]
+  (at level 0, x at level 99) : setoid_scope.
+Notation "[  x 'in' A | P  ]" := [ x | A x /\ P ]
+  (at level 0, x at level 99) : setoid_scope.
+Notation "[ | P  ]" := (@Build_Ensemble _ P)
+  (at level 0, P at level 99) : setoid_scope.
+Notation "{ 'ens' X }" := (Ensemble X)
+  (at level 0, format "{ 'ens'  X }") : setoid_scope.
 
-Notation "[  x  :  A  |  P  ]" := (@Build_Ensemble A (map x => P))
-  (x at level 99).
-Notation "[  x  |  P  ]" := [x : _ | P]
-  (x at level 99).
+Coercion ens_setoid `(A : {ens X}) := sigSSetoid (ensconf A).
 
-Class Included {X} (A B : Ensemble X) := {
-  included : forall x : A, B x
-}.
-Notation "A '<=' B" := (@Included _ A B) : setoid_scope.
-
-Lemma included_trans {X} : Transitive (@Included X).
+Definition subens {X} (A B : {ens X}) := forall x : A, B x.
+Notation "A '<=' B" := (@subens _ A B) : setoid_scope.
+Lemma subens_trans {X} : Transitive (@subens X).
 Proof.
-  intros A B C [LAB] [LBC]. split. intros x.
-  apply (LBC (existS (LAB x))).
+  intros A B C LAB LBC x. apply (LBC (existS (LAB x))).
 Qed.
 #[global]
-Existing Instance included_trans.
+Existing Instance subens_trans.
 
-Program Definition inclumap {X} {A B : Ensemble X} (H : A <= B)
+Ltac trans P := apply (transitivity P). 
+
+Program Definition inclmap {X} {A B : {ens X}} (H : A <= B)
   : Map A B := map x => (@existS _ _ (sval x) _).
 Next Obligation. apply H. Defined.
 Next Obligation. now intros x y E. Defined.
 
-Definition enseq {X} (A B : Ensemble X) := A <= B /\ B <= A.
+Definition enseq {X} (A B : {ens X}) := A <= B /\ B <= A.
 Program Definition EnsembleSetoid (X : Setoid) := [ ==: @enseq X].
 Next Obligation.
   split.
-  - intros A. split; split; now intros [x Ax].
+  - intros A. split; now intros [x Ax].
   - intros A B [AB]. now split.
-  - intros A B C [AB BA] [BC CB]. split.
-    + apply (transitivity AB BC).
-    + apply (transitivity CB BA).
+  - intros A B C [AB BA] [BC CB]. split;
+    now (trans AB || trans CB).
 Defined.
 Canonical Structure EnsembleSetoid.
 
-Program Definition trivEns (X : Setoid) := [ _ : X | True ].
-Next Obligation. now intros x. Defined.
-
-Program Definition imens {X Y} (f : Map X Y) (A : Ensemble X) :=
-  [ y | exists a : A, y == f a ].
+Program Definition Subens {X : Setoid} := bmap by (@subens X).
 Next Obligation.
-  intros x y Exy. split; intros [a Exfa]; exists a;
-  try rewrite <-Exfa; try rewrite Exy; trivial; reflexivity.
+  intros A B [E1 E2] C D [E3 E4]. split; intros Lt;
+  (trans E2 || trans E1); now trans Lt.
+Defined.
+Canonical Structure Subens.
+
+Program Definition ensTfor (X : Setoid) := [ _ : X | True ].
+Next Obligation. now intros x. Defined.
+Program Definition ens0 {X : Setoid} := [ _ : X | False ].
+Next Obligation. now intros x. Defined.
+Program Definition ens1 {X} a := [ x : X | x == a ].
+Next Obligation. intros x y E. now rewrite E. Defined.
+Program Definition ensU {X} (A B : {ens X}) := [ x : X | A x \/ B x ].
+Next Obligation. intros x y E. now rewrite E. Defined.
+Program Definition ensI {X} (A B : {ens X}) := [ x in A | B x ].
+Next Obligation. intros x y E. now rewrite E. Defined.
+Program Definition ensC {X} (A : {ens X}) := [ x | ~ A x ].
+Next Obligation. intros x y E. now rewrite E. Defined.
+Program Definition ensD {X} (A B : {ens X}) := [ x in A | ~ B x ].
+Next Obligation. intros x y E. now rewrite E. Defined.
+Program Definition powens {X} (A : {ens X}) := [ B | B <= A ].
+Next Obligation. intros B C E. now rewrite E. Defined.
+
+Notation "[ 'ens' a ]" := (ens1 a)
+  (at level 0, a at level 99, format "[ 'ens'  a ]") : setoid_scope.
+Notation "[ 'ens' a : T ]" := [ens (a : T)]
+  (at level 0, a at level 99, format "[ 'ens'  a   :  T ]")
+  : setoid_scope.
+Notation "A :|: B" := (ensU A B) 
+  (at level 50, left associativity): setoid_scope.
+Notation "a |: A" := ([ens a] :|: A)
+  (at level 50, left associativity) : setoid_scope.
+Notation "[ 'ens' a1 ; a2 ; .. ; an ]" :=
+  (ensU .. (a1 |: [ens a2]) .. [ens an])
+  (at level 0, a1 at level 99,
+   format "[ 'ens'  a1 ;  a2 ;  .. ;  an ]") : setoid_scope.
+Notation "A :&: B" := (ensI A B)
+  (at level 40, left associativity) : setoid_scope.
+Notation "~: A" := (ensC A)
+  (at level 35, right associativity) : setoid_scope.
+Notation "[ 'ens' ~ a ]" := (~: [ens a])
+  (at level 0, format "[ 'ens' ~  a ]") : setoid_scope.
+Notation "A :\: B" := (ensD A B)
+  (at level 50, left associativity) : setoid_scope.
+Notation "A :\ a" := (A :\: [ens a])
+  (at level 50, left associativity) : setoid_scope.
+
+Program Definition imens {X Y} (f : Map X Y) :=
+  map (A : {ens X}) => [ y | exists a, A a /\ y == f a ].
+Next Obligation.
+  intros x y E. split; intros [a H]; exists a;
+  now (rewrite <-E || rewrite E).
+Defined.
+Next Obligation.
+  intros A B [L1 L2]. split; intros [y [x [Ax E]]]; exists x;
+  split; try intuition;
+  (apply (L1 (existS Ax))|| apply (L2 (existS Ax))).
 Defined.
 
-Program Definition preimens {X Y} (f : Map X Y) (B : Ensemble Y) :=
-  [ x | B (f x) ].
+Program Definition preimens {X Y} (f : Map X Y) :=
+  map (B : {ens Y}) => [ x | B (f x) ].
 Next Obligation. intros x y Exy. now rewrite Exy. Defined.
+Next Obligation.
+  intros A B [L1 L2]. split; intros [x P]; simpl in P;
+  (apply (L1 (existS P)) || apply (L2 (existS P))).
+Defined.
 
 Class Injective {A B : Setoid} (f : A -> B) := {
-  inj : forall x y : A, f x == f y -> x == y
+  inj : forall x y, f x == f y -> x == y
 }.
 
 Class Surjective {A B : Setoid} (f : A -> B) := {
-  surj : forall {y : B}, exists x : A, y == (f x)
+  surj : forall y, exists x, y == (f x)
 }.
 Arguments surj {_} {_} _ {_}.
 
@@ -153,34 +218,27 @@ Class Bijective {A B : Setoid} (f : A -> B) := {
 #[global]
 Existing Instances bij_inj bij_surj.
 
-Program Definition mapcomp {X Y Z} (f: Map X Y) (g: Map Y Z)
+Program Definition mapcomp {X Y Z} (f : Map X Y) (g : Map Y Z)
   : Map X Z := map x => g (f x).
 Next Obligation. intros x y Heq. now rewrite Heq. Defined.
 Notation "g 'o' f" := (@mapcomp _ _ _ f g)
   (at level 60, right associativity) : setoid_scope.
 
-Lemma mapcomp_reduc : forall {X Y Z} {f g: Map Y Z} {h: Map X Y},
+Lemma mapcomp_reduc {X Y Z} {f g : Map Y Z} {h : Map X Y} :
   Surjective h -> f o h == g o h -> f == g.
 Proof.
-  intros X Y Z f g h [Sh] Heq x y Heq1. rewrite Heq1.
-  destruct (Sh y) as [x0 Heq2]. rewrite Heq2. now apply Heq.
+  intros [Sh] Heq x y Heq1. destruct (Sh y) as [x0 Heq2].
+  rewrite Heq1, Heq2. now apply Heq.
 Qed.
 
-Lemma mapcomp_assoc {X Y Z W} {f: Map Z W} {g: Map Y Z} {h: Map X Y} :
-  (f o g) o h == f o g o h.
+Lemma mapcomp_assoc {X Y Z W} {f : Map Z W} {g : Map Y Z}
+  {h : Map X Y} : (f o g) o h == f o g o h.
 Proof. intros x y Heq. now rewrite Heq. Qed.
 
 Lemma sval_inj `{P : Map X Prop} : Injective (@sval _ P).
 Proof. split; intuition. Qed.
 #[global]
 Existing Instance sval_inj.
-
-Structure Binmap (X Y Z : Setoid) := {
-  bmapfun :> X -> Y -> Z;
-  bmapprf :> Proper ((==) ==> (==) ==> (==)) bmapfun
-}.
-#[global]
-Existing Instance bmapprf.
 
 Definition paireq {A B : Setoid} (ab1 ab2 : A * B) :=
   fst ab1 == fst ab2 /\ snd ab1 == snd ab2.
@@ -195,15 +253,18 @@ Next Obligation.
 Defined.
 Canonical Structure PairSetoid.
 
-Program Definition pairens {X Y} (A : Ensemble X) (B : Ensemble Y)
-  := [ p : (X * Y)%type | A (fst p) /\ B (snd p) ].
+Definition pairin {X Y} (A : {ens X}) (B : {ens Y})
+  (p : (X * Y)%type) := A (fst p) /\ B (snd p).
+Program Definition pairens {X Y} (A : {ens X}) (B : {ens Y})
+  := [ p : (X * Y)%type | pairin A B p ].
 Next Obligation.
   intros p1 p2 [E1 E2]. split; intros [Ap Bp]; split;
   now (rewrite <-E1 || rewrite <-E2 ||
     rewrite E1 || rewrite E2).
 Defined.
 Notation "[  A  ,  B  ]" := (@pairens _ _ A B)
-  (at level 0, A, B at level 99, no associativity) : setoid_scope.
+  (at level 0, A, B at level 99, no associativity)
+  : setoid_scope.
 
 Program Definition bmap_pmap `(f : Binmap X Y Z)
   : Map (X * Y)%type Z := map p => f (fst p) (snd p).
@@ -211,8 +272,30 @@ Next Obligation.
   intros p1 p2 [E1 E2]. now rewrite E1, E2.
 Defined.
 
-Program Definition imens2 `(f : Binmap X Y Z) (A : Ensemble X)
-  (B : Ensemble Y) :=  imens (bmap_pmap f) [A, B].
+Program Definition imens2 `(f : Binmap X Y Z) :=
+  bmap (A : {ens X}) (B : {ens Y})
+  => [ z | exists a b, A a /\ B b /\ z == f a b ].
+Next Obligation.
+  intros z1 z2 E. split; intros [a [b E1]];
+  exists a, b; now (rewrite <-E || rewrite E).
+Defined.
+Next Obligation.
+  intros A1 A2 [L1 L2] B1 B2 [L3 L4]. split;
+  intros [z [a [b [Aa [Bb E]]]]]; exists a, b;
+  split; try split; try now simpl;
+  try apply (L1 (existS Aa)); try apply (L3 (existS Bb));
+  try apply (L2 (existS Aa)); try apply (L4 (existS Bb)).
+Defined.
+
+Program Definition imens2' `(f : Binmap X Y Z) :=
+  bmap A B => imens (bmap_pmap f) [A, B].
+Next Obligation.
+  intros A B [L1 L2] C D [L3 L4]. split;
+  intros [z [p [[Ap Cp] E]]]; exists p; split;
+  try intuition; split. apply (L1 (existS Ap)).
+  apply (L3 (existS Cp)). apply (L2 (existS Ap)).
+  apply (L4 (existS Cp)).
+Defined.
 
 Close Scope setoid_scope.
 
