@@ -1,31 +1,11 @@
 Generalizable All Variables.
 Set Implicit Arguments.
-Require Export setoid.
+Require Export setoid monoid.
 
 Declare Scope group_scope.
 Open Scope setoid_scope.
+Open Scope monoid_scope.
 Open Scope group_scope.
-
-Definition Binop X := Binmap X X X.
-
-Class Associative {X : Setoid} (op : X -> X -> X) := {
-  assoc : forall x y z, op x (op y z) == op (op x y) z 
-}.
-
-Class LIdentical {X : Setoid} (op : X -> X -> X) e := {
-  identl : forall x, op e x == x
-}.
-
-Class RIdentical {X : Setoid} (op : X -> X -> X) e := {
-  identr : forall x, op x e == x
-}.
-
-Class Identical {X : Setoid} (op : X -> X -> X) e := {
-  id_identl :> LIdentical op e;
-  id_identr :> RIdentical op e
-}.
-#[global]
-Existing Instances id_identl id_identr.
 
 Class LInvertible {X : Setoid} (op : X -> X -> X) e (inv : X -> X) := {
   invl : forall x, op (inv x) x == e
@@ -39,8 +19,7 @@ Class Invertible `{X : Setoid} (op : X -> X -> X) e (inv : X -> X) := {
   inv_invl :> LInvertible op e inv;
   inv_invr :> RInvertible op e inv
 }.
-#[global]
-Existing Instances inv_invl inv_invr.
+#[global] Existing Instances inv_invl inv_invr.
 
 Class IsGroupS `(mul : Binop supp) (inv : Map supp supp) e :=
 {
@@ -57,12 +36,29 @@ Structure GroupS := {
 
   groupsprf :> IsGroupS mulg invg idg
 }.
-#[global]
-Existing Instance groupsprf.
+#[global] Existing Instance groupsprf.
 
 Arguments mulg {_}.
 Arguments invg {_}.
 Arguments idg {_}.
+
+Lemma identlg {G} : LIdentical (@mulg G) idg.
+Proof.
+  split. intros x. rewrite <-identr. rewrite <-(invr (invg x)) at 2.
+  now rewrite assoc, <-(assoc idg), invr, identr,
+    <-(invr x), <-assoc, invr, identr.
+Qed.
+#[global] Existing Instance identlg.
+
+Program Coercion grps_mnds (G : GroupS) :=
+  [ gcarrier G | *: mulg, 1: idg ].
+Next Obligation.
+  destruct G as [s mul inv id [A RI RV]]; split;
+  (intuition || split; intuition).
+Defined.
+
+Program Definition ensg_ensm {X : GroupS} (G : {ens X})
+  : {ens grps_mnds X} := G.
 
 Notation "[ A | *: op , !: inv , 1: id ]" :=
   (@Build_GroupS A op inv id _)
@@ -87,22 +83,12 @@ Notation "! g" := ( ! g in _ )
 Definition conjg {G : GroupS} (g h : G) := !g * (h * g).
 Notation "h ^ g" := (@conjg _ g h) : group_scope.
 
-Lemma identlg {G} : LIdentical ( * in G ) 1.
-Proof.
-  split. intros x. rewrite <-identr. rewrite <-(invr (!x)) at 2.
-  now rewrite assoc, <-(assoc 1), invr, identr,
-    <-(invr x), <-assoc, invr, identr.
-Qed.
-#[global]
-Existing Instance identlg.
-
 Lemma invlg {G} : LInvertible ( * in G ) 1 ( ! ).
 Proof.
   split. intros x. rewrite <-identr. rewrite <-(invr (!x)) at 1.
   now rewrite assoc, <-(assoc _ x), invr, identr, invr.
 Qed.
-#[global]
-Existing Instance invlg.
+#[global] Existing Instance invlg.
 
 Section GroupTheory.
   Context {G : GroupS}.
@@ -124,7 +110,7 @@ Section GroupTheory.
 
   Lemma mulgI {g x y} : x * g == y * g -> x == y.
   Proof.
-    intros H. 
+    intros H.
     now rewrite <-identr, <-(identr y), <-(invr g), 2!assoc, H.
   Qed.
 
@@ -160,34 +146,37 @@ Section GroupTheory.
   Proof.
     rewrite <-(identr (!1)). symmetry; apply mulTg, identl.
   Qed.
+
+  Lemma invg_inj {x y} : x * y == 1 -> y == !x.
+  Proof.
+    intros H. rewrite <-(identr (!x)). now apply mulTg.
+  Defined.
 End GroupTheory.
 
-Class IsHomomorph {G H : GroupS} (f : Map G H) := {
+Class IsMorph {G H : GroupS} (f : Map G H) := {
   morph : forall x y, f (x * y) == (f x) * (f y) in H
 }.
 
-Structure Homomorph (G H : GroupS) := {
+Structure Morph (G H : GroupS) := {
   homfun :> Map G H;
-  homprf :> IsHomomorph homfun
+  homprf :> IsMorph homfun
 }.
-#[global]
-Existing Instance homprf.
+#[global] Existing Instance homprf.
 
-Notation "'hom' 'on' f" := (@Build_Homomorph _ _ f _)
+Notation "'hom' 'on' f" := (@Build_Morph _ _ f _)
   (at level 200, no associativity).
 Notation "'hom' 'by' f " := (hom on (map by f))
   (at level 200, no associativity).
 Notation " 'hom' x => m " := (hom by fun x => m)
   (at level 200, x binder, no associativity) : group_scope.
-Notation "G ~~> H" := (@Homomorph G H)
+Notation "G ~~> H" := (@Morph G H)
   (at level 99, no associativity) : group_scope.
 
 Structure Isomorph (G H : GroupS) := {
-  isofun :> Homomorph G H;
+  isofun :> Morph G H;
   isoprf :> Bijective isofun
 }.
-#[global]
-Existing Instance isoprf.
+#[global] Existing Instance isoprf.
 
 Notation "'iso' 'on' f" := (@Build_Isomorph _ _ f _)
   (at level 200, no associativity) : group_scope.
@@ -214,7 +203,7 @@ Notation "g '<o>' f" := (isocomp f g)
   (at level 60, right associativity) : group_scope.
 
 Section HomTheory.
-  Context `{f: Homomorph G H}.
+  Context `{f: Morph G H}.
   Lemma morph1 : f 1 == 1.
   Proof.
     apply (mulgI (g := f 1)). now rewrite <-morph, 2!identl.
@@ -227,41 +216,23 @@ Section HomTheory.
   Qed.
 End HomTheory.
 
-Lemma ensmul_assoc {G : GroupS} : Associative (imens2 ( * in G )).
-Proof.
-  split. intros A B C. split; intros [g1 [a [g2 [H [H1 H2]]]]]; simpl.
-  + destruct H1 as [b [c [Bb [Cc E1]]]]. exists (a * b), c. split;
-    (exists a, b || rewrite <-assoc, <- E1); intuition.
-  + destruct H as [a0 [b [Aa0 [Bb E]]]]. exists a0, (b * g2).
-    intuition; (exists b, g2 || rewrite assoc, <-E); intuition.
-Qed.
 
-Lemma ensmulg1 {G : GroupS} : RIdentical (imens2 ( * in G )) [ens 1].
-Proof.
-  split. intros A. split.
-  + intros [a [a0 [i [Aa [I E]]]]]. simpl. now rewrite E, I, identr.
-  + intros [a Aa]. exists a, 1. simpl. intuition. now rewrite identr.
-Qed.
-
-
-Class IsGroup {X : GroupS} (G : Ensemble X) := {
-  fermM : forall {x y : G}, G (x * y);  
-  fermV : forall {x : G}, G (!x);
-  ferm1 : G 1
+Class IsGroup {X : GroupS} (G : {ens X}) := {
+  (* fermg : (ensg_ensm G * ensg_ensm (invg @: G))%mnd <= G *)
+  mulgF : forall {x y : G}, G (x * y);  
+  invgF : forall {x : G}, G (!x);
+  idgF : G 1
 }.
 
 Structure Group (X : GroupS) := {
-  suppg :> Ensemble X;
+  suppg :> {ens X};
   groupprf :> IsGroup suppg
 }.
-#[global]
-Existing Instance groupprf.
+#[global] Existing Instance groupprf.
 
-Notation "<[  x  :  A  |  P  ]" := (@Build_Group A (map x => P))
-  (x at level 99).
-Notation "[  x  |  P  ]" := [x : _ | P]
-  (x at level 99).
-
+Notation "< G >" := (@Build_Group _ G _)
+  (at level 0, no associativity) : group_scope.
+Notation "{ 'grp' X  }" := (Group X) : group_scope.
 
 Close Scope group_scope.
 Close Scope setoid_scope.

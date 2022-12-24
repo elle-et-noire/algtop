@@ -12,8 +12,7 @@ Structure Setoid : Type := {
   equal : relation scarrier;
   equal_equiv :> Equivalence equal
 }.
-#[global]
-Existing Instance equal_equiv.
+#[global] Existing Instance equal_equiv.
 
 Notation "[  A  |  ==:  P  ]" := (@Build_Setoid A P _)
   (at level 0, A, P at level 99).
@@ -34,8 +33,7 @@ Structure Map (X Y : Setoid) : Type := {
   mapfun :> X -> Y;
   mapprf :> Proper ((==) ==> (==)) mapfun
 }.
-#[global]
-Existing Instance mapprf.
+#[global] Existing Instance mapprf.
 
 Notation "'map' 'by' f" := (@Build_Map _ _ f _)
   (at level 200, no associativity).
@@ -57,8 +55,7 @@ Structure Binmap (X Y Z : Setoid) := {
   bmapfun :> X -> Y -> Z;
   bmapprf :> Proper ((==) ==> (==) ==> (==)) bmapfun
 }.
-#[global]
-Existing Instance bmapprf.
+#[global] Existing Instance bmapprf.
 
 Notation "'bmap' 'by' f" := (@Build_Binmap _ _ _ f _)
   (at level 200, no associativity).
@@ -113,8 +110,7 @@ Lemma subens_trans {X} : Transitive (@subens X).
 Proof.
   intros A B C LAB LBC x. apply (LBC (existS (LAB x))).
 Qed.
-#[global]
-Existing Instance subens_trans.
+#[global] Existing Instance subens_trans.
 
 Ltac trans P := apply (transitivity P). 
 
@@ -182,17 +178,20 @@ Notation "A :\: B" := (ensD A B)
 Notation "A :\ a" := (A :\: [ens a])
   (at level 50, left associativity) : setoid_scope.
 
+(* Definition inclsigS {X} {A B : {ens X}} (H : A <= B) (a : A) *)
+
 Program Definition imens {X Y} (f : Map X Y) :=
-  map (A : {ens X}) => [ y | exists a, A a /\ y == f a ].
+  map (A : {ens X}) => [ y | exists (a : A), y == f a ].
 Next Obligation.
   intros x y E. split; intros [a H]; exists a;
   now (rewrite <-E || rewrite E).
 Defined.
 Next Obligation.
-  intros A B [L1 L2]. split; intros [y [x [Ax E]]]; exists x;
-  split; try intuition;
-  (apply (L1 (existS Ax))|| apply (L2 (existS Ax))).
+  intros A B [L1 L2]. split; intros [y [a E]];
+  now (exists (inclmap L1 a) || exists (inclmap L2 a)).
 Defined.
+Notation "f @: A" := (@imens _ _ f A)
+  (at level 24, right associativity) : setoid_scope.
 
 Program Definition preimens {X Y} (f : Map X Y) :=
   map (B : {ens Y}) => [ x | B (f x) ].
@@ -201,6 +200,8 @@ Next Obligation.
   intros A B [L1 L2]. split; intros [x P]; simpl in P;
   (apply (L1 (existS P)) || apply (L2 (existS P))).
 Defined.
+Notation "f -@: B" := (@preimens _ _ f B)
+  (at level 24, right associativity) : setoid_scope.
 
 Class Injective {A B : Setoid} (f : A -> B) := {
   inj : forall x y, f x == f y -> x == y
@@ -215,8 +216,7 @@ Class Bijective {A B : Setoid} (f : A -> B) := {
   bij_inj :> Injective f;
   bij_surj :> Surjective f
 }.
-#[global]
-Existing Instances bij_inj bij_surj.
+#[global] Existing Instances bij_inj bij_surj.
 
 Program Definition mapcomp {X Y Z} (f : Map X Y) (g : Map Y Z)
   : Map X Z := map x => g (f x).
@@ -237,8 +237,7 @@ Proof. intros x y Heq. now rewrite Heq. Qed.
 
 Lemma sval_inj `{P : Map X Prop} : Injective (@sval _ P).
 Proof. split; intuition. Qed.
-#[global]
-Existing Instance sval_inj.
+#[global] Existing Instance sval_inj.
 
 Definition paireq {A B : Setoid} (ab1 ab2 : A * B) :=
   fst ab1 == fst ab2 /\ snd ab1 == snd ab2.
@@ -274,28 +273,36 @@ Defined.
 
 Program Definition imens2 `(f : Binmap X Y Z) :=
   bmap (A : {ens X}) (B : {ens Y})
-  => [ z | exists a b, A a /\ B b /\ z == f a b ].
+  => [ z | exists (a : A) (b : B), z == f a b ].
 Next Obligation.
   intros z1 z2 E. split; intros [a [b E1]];
   exists a, b; now (rewrite <-E || rewrite E).
 Defined.
 Next Obligation.
   intros A1 A2 [L1 L2] B1 B2 [L3 L4]. split;
-  intros [z [a [b [Aa [Bb E]]]]]; exists a, b;
-  split; try split; try now simpl;
-  try apply (L1 (existS Aa)); try apply (L3 (existS Bb));
-  try apply (L2 (existS Aa)); try apply (L4 (existS Bb)).
+  intros [z [a [b E]]]; now
+  (exists (inclmap L1 a), (inclmap L3 b)
+  || exists (inclmap L2 a), (inclmap L4 b)).
 Defined.
+Notation "f @2: ( A , B )" := (@imens2 _ _ _ f A B)
+  (at level 24, right associativity) : setoid_scope.
 
 Program Definition imens2' `(f : Binmap X Y Z) :=
   bmap A B => imens (bmap_pmap f) [A, B].
 Next Obligation.
   intros A B [L1 L2] C D [L3 L4]. split;
-  intros [z [p [[Ap Cp] E]]]; exists p; split;
-  try intuition; split. apply (L1 (existS Ap)).
-  apply (L3 (existS Cp)). apply (L2 (existS Ap)).
-  apply (L4 (existS Cp)).
+  intros [z [[p [H1 H2]] E]];
+  (pose (conj (L1 (existS H1)) (L3 (existS H2))) as H ||
+  pose (conj (L2 (existS H1)) (L4 (existS H2))) as H);
+  now exists (@existS _ (map p0 => pairin _ _ p0) p H).
 Defined.
+
+Notation "f ^~ y" := (fun x => f x y)
+  (at level 10, y at level 8, no associativity, format "f ^~  y")
+  : setoid_scope.
+Notation "@^~ x" := (fun f => f x) 
+  (at level 10, x at level 8, no associativity, format "@^~  x")
+  : setoid_scope.
 
 Close Scope setoid_scope.
 
