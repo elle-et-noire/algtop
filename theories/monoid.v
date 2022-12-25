@@ -74,24 +74,23 @@ Section MonoidTheory.
   Proof. now destruct M as [a b c [[e] [[f] g]]]. Qed.
 End MonoidTheory.
 
+Ltac existsS T :=
+  apply sigS_exists; exists T; simpl.
+
 Program Definition ensmulM {M : MonoidS} :=
   [ {ens M} | *: imens2 ( * in M ), 1: [ens 1] ].
 Next Obligation.
   assert ((1 in M) == 1) as Eid. { reflexivity. } split; split.
   - intros A B C. split. 
   + intros [g1 [a [[g2 [b [c E1]]] E2]]].
-    simpl in E2. simpl.
+    simpl in E2. simpl. existsS (a * b).
     assert (exists (a0 : A) (b0 : B), a * b == a0 * b0) as H.
-    { now exists a, b. }
-    exists (@existS _ (map z => exists (a0 : A) (b0 : B),
-    z == a0 * b0) (a * b) H). simpl.
-    exists c. now rewrite E2, E1, assoc.
-  + intros [g1 [[g2 [a [b E1]]] [c E2]]]. simpl in E2. simpl.
-    assert (exists (b0 : B) (c0 : C), b * c == b0 * c0) as H.
-    { now exists b, c. } exists a.
-    exists (@existS _ (map z => exists (b0 : B) (c0 : C),
-    z == b0 * c0) _ H). simpl.
+    { now exists a, b. } exists H, c.
     now rewrite E2, E1, assoc.
+  + intros [g1 [[g2 [a [b E1]]] [c E2]]]. simpl in E2. simpl.
+    exists a. existsS (b * c).
+    assert (exists (b0 : B) (c0 : C), b * c == b0 * c0) as H.
+    { now exists b, c. } exists H. now rewrite E2, E1, assoc.
   - split. intros A. split. 
   + intros [g [[i I] [[a Aa] E]]]. simpl in I, E. simpl.
     now rewrite E, I, identl.

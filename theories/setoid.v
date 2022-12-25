@@ -178,8 +178,6 @@ Notation "A :\: B" := (ensD A B)
 Notation "A :\ a" := (A :\: [ens a])
   (at level 50, left associativity) : setoid_scope.
 
-(* Definition inclsigS {X} {A B : {ens X}} (H : A <= B) (a : A) *)
-
 Program Definition imens {X Y} (f : Map X Y) :=
   map (A : {ens X}) => [ y | exists (a : A), y == f a ].
 Next Obligation.
@@ -255,7 +253,7 @@ Canonical Structure PairSetoid.
 Definition pairin {X Y} (A : {ens X}) (B : {ens Y})
   (p : (X * Y)%type) := A (fst p) /\ B (snd p).
 Program Definition pairens {X Y} (A : {ens X}) (B : {ens Y})
-  := [ p : (X * Y)%type | pairin A B p ].
+  := [ | map by pairin A B ].
 Next Obligation.
   intros p1 p2 [E1 E2]. split; intros [Ap Bp]; split;
   now (rewrite <-E1 || rewrite <-E2 ||
@@ -303,6 +301,12 @@ Notation "f ^~ y" := (fun x => f x y)
 Notation "@^~ x" := (fun f => f x) 
   (at level 10, x at level 8, no associativity, format "@^~  x")
   : setoid_scope.
+
+Lemma sigS_exists `{P : Map X Prop} {Q : sigS P -> Prop}
+  : (exists (x : X) (H : P x), Q (existS H)) -> exists x : sigS P, Q x.
+Proof.
+  intros [x [HP HQ]]. now exists (existS HP).
+Defined.
 
 Close Scope setoid_scope.
 
