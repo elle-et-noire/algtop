@@ -126,14 +126,14 @@ Next Obligation.
   - intros A. split; now intros [x Ax].
   - intros A B [AB]. now split.
   - intros A B C [AB BA] [BC CB]. split;
-    now (trans AB || trans CB).
+    now trans AB || trans CB.
 Defined.
 Canonical Structure EnsembleSetoid.
 
 Program Definition Subens {X : Setoid} := bmap by (@subens X).
 Next Obligation.
   intros A B [E1 E2] C D [E3 E4]. split; intros Lt;
-  (trans E2 || trans E1); now trans Lt.
+  trans E2 || trans E1; now trans Lt.
 Defined.
 Canonical Structure Subens.
 
@@ -182,11 +182,11 @@ Program Definition imens {X Y} (f : Map X Y) :=
   map (A : {ens X}) => [ y | exists (a : A), y == f a ].
 Next Obligation.
   intros x y E. split; intros [a H]; exists a;
-  now (rewrite <-E || rewrite E).
+  now rewrite <-E || rewrite E.
 Defined.
 Next Obligation.
   intros A B [L1 L2]. split; intros [y [a E]];
-  now (exists (inclmap L1 a) || exists (inclmap L2 a)).
+  now exists (inclmap L1 a) || exists (inclmap L2 a).
 Defined.
 Notation "f @: A" := (@imens _ _ f A)
   (at level 24, right associativity) : setoid_scope.
@@ -196,7 +196,7 @@ Program Definition preimens {X Y} (f : Map X Y) :=
 Next Obligation. intros x y Exy. now rewrite Exy. Defined.
 Next Obligation.
   intros A B [L1 L2]. split; intros [x P]; simpl in P;
-  (apply (L1 (existS P)) || apply (L2 (existS P))).
+  apply (L1 (existS P)) || apply (L2 (existS P)).
 Defined.
 Notation "f -@: B" := (@preimens _ _ f B)
   (at level 24, right associativity) : setoid_scope.
@@ -246,7 +246,7 @@ Next Obligation.
   - intros p. split; now simpl.
   - intros p1 p2 [E1 E2]. now split.
   - intros p1 p2 p3 [E1 E2] [E3 E4]. split;
-    now (rewrite E1 || rewrite E2).
+    now rewrite E1 || rewrite E2.
 Defined.
 Canonical Structure PairSetoid.
 
@@ -256,8 +256,8 @@ Program Definition pairens {X Y} (A : {ens X}) (B : {ens Y})
   := [ | map by pairin A B ].
 Next Obligation.
   intros p1 p2 [E1 E2]. split; intros [Ap Bp]; split;
-  now (rewrite <-E1 || rewrite <-E2 ||
-    rewrite E1 || rewrite E2).
+  now rewrite <-E1 || rewrite <-E2 ||
+    rewrite E1 || rewrite E2.
 Defined.
 Notation "[  A  ,  B  ]" := (@pairens _ _ A B)
   (at level 0, A, B at level 99, no associativity)
@@ -274,13 +274,13 @@ Program Definition imens2 `(f : Binmap X Y Z) :=
   => [ z | exists (a : A) (b : B), z == f a b ].
 Next Obligation.
   intros z1 z2 E. split; intros [a [b E1]];
-  exists a, b; now (rewrite <-E || rewrite E).
+  exists a, b; now rewrite <-E || rewrite E.
 Defined.
 Next Obligation.
   intros A1 A2 [L1 L2] B1 B2 [L3 L4]. split;
   intros [z [a [b E]]]; now
-  (exists (inclmap L1 a), (inclmap L3 b)
-  || exists (inclmap L2 a), (inclmap L4 b)).
+  exists (inclmap L1 a), (inclmap L3 b)
+  || exists (inclmap L2 a), (inclmap L4 b).
 Defined.
 Notation "f @2: ( A , B )" := (@imens2 _ _ _ f A B)
   (at level 24, right associativity) : setoid_scope.
@@ -290,8 +290,8 @@ Program Definition imens2' `(f : Binmap X Y Z) :=
 Next Obligation.
   intros A B [L1 L2] C D [L3 L4]. split;
   intros [z [[p [H1 H2]] E]];
-  (pose (conj (L1 (existS H1)) (L3 (existS H2))) as H ||
-  pose (conj (L2 (existS H1)) (L4 (existS H2))) as H);
+  pose (conj (L1 (existS H1)) (L3 (existS H2))) as H ||
+  pose (conj (L2 (existS H1)) (L4 (existS H2))) as H;
   now exists (@existS _ (map p0 => pairin _ _ p0) p H).
 Defined.
 

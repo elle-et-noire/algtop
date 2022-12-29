@@ -75,7 +75,11 @@ Section MonoidTheory.
 End MonoidTheory.
 
 Ltac existsS T :=
-  apply sigS_exists; exists T; simpl.
+  let H := fresh "H" in
+  apply sigS_exists; exists T; simpl;
+  match goal with
+  | |- exists _ : ?P, _ => assert P as H
+  end; [|exists H].
 
 Program Definition ensmulM {M : MonoidS} :=
   [ {ens M} | *: imens2 ( * in M ), 1: [ens 1] ].
@@ -83,14 +87,11 @@ Next Obligation.
   assert ((1 in M) == 1) as Eid. { reflexivity. } split; split.
   - intros A B C. split. 
   + intros [g1 [a [[g2 [b [c E1]]] E2]]].
-    simpl in E2. simpl. existsS (a * b).
-    assert (exists (a0 : A) (b0 : B), a * b == a0 * b0) as H.
-    { now exists a, b. } exists H, c.
-    now rewrite E2, E1, assoc.
+    simpl in E2. simpl. existsS (a * b). { now exists a, b. }
+    exists c. now rewrite E2, E1, assoc.
   + intros [g1 [[g2 [a [b E1]]] [c E2]]]. simpl in E2. simpl.
-    exists a. existsS (b * c).
-    assert (exists (b0 : B) (c0 : C), b * c == b0 * c0) as H.
-    { now exists b, c. } exists H. now rewrite E2, E1, assoc.
+    exists a. existsS (b * c). { now exists b, c. }
+    now rewrite E2, E1, assoc.
   - split. intros A. split. 
   + intros [g [[i I] [[a Aa] E]]]. simpl in I, E. simpl.
     now rewrite E, I, identl.

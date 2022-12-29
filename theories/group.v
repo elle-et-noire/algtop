@@ -54,7 +54,7 @@ Program Coercion grps_mnds (G : GroupS) :=
   [ gcarrier G | *: mulg, 1: idg ].
 Next Obligation.
   destruct G as [s mul inv id [A RI RV]]; split;
-  (intuition || split; intuition).
+  intuition || split; intuition.
 Defined.
 
 Program Definition ensg_ensm {X : GroupS} (G : {ens X})
@@ -195,7 +195,7 @@ Program Definition isocomp {G1 G2 G3} (f: G1 <~> G2) (g: G2 <~> G3)
   : G1 <~> G3 := iso on (g <o~ f).
 Next Obligation.
   split; split; simpl.
-  - intros x y Heq. now apply inj, inj in Heq.
+  - intros x y Heq. now repeat apply inj in Heq.
   - intros z. destruct (surj g z) as [y E1]. 
     destruct (surj f y) as [x E2]. exists x. now rewrite E1, E2.
 Defined.
