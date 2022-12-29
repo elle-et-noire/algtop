@@ -79,12 +79,12 @@ Ltac existsS T :=
   apply sigS_exists; exists T; simpl;
   match goal with
   | |- exists _ : ?P, _ => assert P as H
-  end; [|exists H].
+  end; [intuition |exists H].
 
 Program Definition ensmulM {M : MonoidS} :=
   [ {ens M} | *: imens2 ( * in M ), 1: [ens 1] ].
 Next Obligation.
-  assert ((1 in M) == 1) as Eid. { reflexivity. } split; split.
+  split; split.
   - intros A B C. split. 
   + intros [g1 [a [[g2 [b [c E1]]] E2]]].
     simpl in E2. simpl. existsS (a * b). { now exists a, b. }
@@ -93,16 +93,14 @@ Next Obligation.
     exists a. existsS (b * c). { now exists b, c. }
     now rewrite E2, E1, assoc.
   - split. intros A. split. 
-  + intros [g [[i I] [[a Aa] E]]]. simpl in I, E. simpl.
+  + intros [g [[i I] [[a Aa] E]]]. simpl in *.
     now rewrite E, I, identl.
-  + intros [a Aa]. simpl. exists (@existS _ (map x => x == 1) _ Eid).
-    exists (existS Aa). simpl. now rewrite identl.
+  + intros [a Aa]. simpl. existsS (1 in M).
+    exists (existS Aa). now rewrite identl.
   - split. intros A. split.
-  + intros [g [[a Aa] [[i I] E]]]. simpl in I, E. simpl.
+  + intros [g [[a Aa] [[i I] E]]]. simpl in *.
     now rewrite E, I, identr.
-  + intros [a Aa]. simpl. exists (existS Aa).
-    exists (@existS _ (map x => x == 1) _ Eid). simpl.
-    now rewrite identr.
+  + intros a. exists a. existsS (1 in M). now rewrite identr.
 Defined.
 Canonical Structure ensmulM.
 
