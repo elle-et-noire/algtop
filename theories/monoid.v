@@ -85,13 +85,13 @@ Program Definition ensmulM {M : MonoidS} :=
   [ {ens M} | *: imens2 ( * in M ), 1: [ens 1] ].
 Next Obligation.
   split; split.
-  - intros A B C. split. 
-  + intros [g1 [a [[g2 [b [c E1]]] E2]]].
-    simpl in E2. simpl. existsS (a * b). { now exists a, b. }
+  - intros A B C. split.
+  + intros [g1 [a [[g2 [b [c E1]]] E2]]]. simpl in *.
+    existsS (a * b). { now exists a, b. }
     exists c. now rewrite E2, E1, assoc.
-  + intros [g1 [[g2 [a [b E1]]] [c E2]]]. simpl in E2. simpl.
-    exists a. existsS (b * c). { now exists b, c. }
-    now rewrite E2, E1, assoc.
+  + intros [g1 [[g2 [a [b E1]]] [c E2]]]. simpl in *.
+    exists a. existsS (b * c);
+    now exists b, c || rewrite E2, E1, assoc.
   - split. intros A. split. 
   + intros [g [[i I] [[a Aa] E]]]. simpl in *.
     now rewrite E, I, identl.

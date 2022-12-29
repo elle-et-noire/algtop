@@ -51,6 +51,16 @@ Next Obligation.
 Defined.
 Canonical Structure MapSetoid.
 
+Program Definition Comap {X Y : Setoid}
+  := map x => map (f : Map X Y) => f x.
+Next Obligation.
+  intros f1 f2 E. now rewrite (E x) by reflexivity.
+Defined.
+Next Obligation.
+  intros x1 x2 E f1 f2 E2. simpl. rewrite E.
+  now rewrite (E2 x2) by reflexivity.
+Defined.
+
 Structure Binmap (X Y Z : Setoid) := {
   bmapfun :> X -> Y -> Z;
   bmapprf :> Proper ((==) ==> (==) ==> (==)) bmapfun
@@ -178,16 +188,20 @@ Notation "A :\: B" := (ensD A B)
 Notation "A :\ a" := (A :\: [ens a])
   (at level 50, left associativity) : setoid_scope.
 
-Program Definition imens {X Y} (f : Map X Y) :=
-  map (A : {ens X}) => [ y | exists (a : A), y == f a ].
+Program Definition imens {X Y} := bmap (f : Map X Y) (A : {ens X})
+  => [ y | exists (a : A), y == f a ].
 Next Obligation.
   intros x y E. split; intros [a H]; exists a;
   now rewrite <-E || rewrite E.
 Defined.
 Next Obligation.
-  intros A B [L1 L2]. split; intros [y [a E]];
-  now exists (inclmap L1 a) || exists (inclmap L2 a).
+  intros f1 f2 Ef A1 A2 [L1 L2]. split; intros [y [a E]];
+  exists (inclmap L1 a) || exists (inclmap L2 a); simpl;
+  assert (f1 == f2) as Ef0 by apply Ef;
+  assert (y == Comap (sval a) _) as E0 by apply E;
+  now rewrite Ef0 in E0 || rewrite <-Ef0 in E0.
 Defined.
+
 Notation "f @: A" := (@imens _ _ f A)
   (at level 24, right associativity) : setoid_scope.
 
@@ -221,6 +235,24 @@ Program Definition mapcomp {X Y Z} (f : Map X Y) (g : Map Y Z)
 Next Obligation. intros x y Heq. now rewrite Heq. Defined.
 Notation "g 'o' f" := (@mapcomp _ _ _ f g)
   (at level 60, right associativity) : setoid_scope.
+
+Program Definition bmmcomp1 {X Y Z W} (f : Binmap X Y Z)
+  (g : Map W X) := bmap w y => f (g w) y.
+Next Obligation.
+  intros w1 w2 Ew y1 y2 Ey. now rewrite Ew, Ey.
+Defined.
+
+Program Definition bmmcomp2 {X Y Z W} (f : Binmap X Y Z)
+  (g : Map W Y) := bmap x w => f x (g w).
+Next Obligation.
+  intros w1 w2 Ew y1 y2 Ey. now rewrite Ew, Ey.
+Defined.
+
+Program Definition bmaptwist {X Y Z} (f : Binmap X Y Z)
+  := bmap y x => f x y.
+Next Obligation.
+  intros x1 x2 Ex y1 y2 Ey. now rewrite Ex, Ey.
+Defined.
 
 Lemma mapcomp_reduc {X Y Z} {f g : Map Y Z} {h : Map X Y} :
   Surjective h -> f o h == g o h -> f == g.
@@ -295,18 +327,44 @@ Next Obligation.
   now exists (@existS _ (map p0 => pairin _ _ p0) p H).
 Defined.
 
-Notation "f ^~ y" := (fun x => f x y)
-  (at level 10, y at level 8, no associativity, format "f ^~  y")
-  : setoid_scope.
-Notation "@^~ x" := (fun f => f x) 
-  (at level 10, x at level 8, no associativity, format "@^~  x")
-  : setoid_scope.
-
 Lemma sigS_exists `{P : Map X Prop} {Q : sigS P -> Prop}
   : (exists (x : X) (H : P x), Q (existS H)) -> exists x : sigS P, Q x.
-Proof.
-  intros [x [HP HQ]]. now exists (existS HP).
+Proof. intros [x [HP HQ]]. now exists (existS HP). Defined.
+
+Lemma exists_sigS `{P : Map X Prop} {Q : sigS P -> Prop}
+  : (exists x : sigS P, Q x) -> exists (x : X) (H : P x), Q (existS H).
+Proof. intros [[x HP] HQ]. now exists x, HP. Defined.
+
+Lemma forall_sigS `{P : Map X Prop} {Q : sigS P -> Prop}
+  : (forall x : sigS P, Q x) -> (forall (x : X) (H : P x), Q (existS H)).
+Proof. intros H x HP. apply H. Defined.
+
+Program Definition bmap_curry1_map `(f : Binmap X Y Z)
+  := map (x : X) => map by f x.
+Next Obligation. intros y1 y2 E. now rewrite E. Defined.
+Next Obligation.
+  intros x1 x2 E1 y1 y2 E2. simpl. now rewrite E1, E2.
 Defined.
+
+Program Definition bmap_curry2_map `(f : Binmap X Y Z)
+  := map (y : Y) => map x => f x y.
+Next Obligation. intros x1 x2 E. now rewrite E. Defined.
+Next Obligation.
+  intros y1 y2 E1 x1 x2 E2. simpl. now rewrite E1, E2.
+Defined.
+
+Notation "f '^m' x" := (bmap_curry1_map f x)
+  (at level 10, x at level 8, no associativity, format "f ^m  x")
+  : setoid_scope.
+Notation "f ^~" := (bmap_curry2_map f)
+  (at level 10, no associativity)
+  : setoid_scope.
+(* Notation "f ^~ y" := (f^~ y)
+  (at level 10, y at level 8, no associativity, format "f ^~  y")
+  : setoid_scope. *)
+
+
+
 
 Close Scope setoid_scope.
 

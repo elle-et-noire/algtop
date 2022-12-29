@@ -80,7 +80,10 @@ Notation "! g 'in' G" := (@invg G g)
 Notation "! g" := ( ! g in _ )
   (at level 35, right associativity) : group_scope.
 
-Definition conjg {G : GroupS} (g h : G) := !g * (h * g).
+Program Definition conjg {G : GroupS} := bmap (g : G) h => !g * (h * g).
+Next Obligation.
+  intros g1 g2 E1 h1 h2 E2. now rewrite E1, E2.
+Defined. 
 Notation "h ^ g" := (@conjg _ g h) : group_scope.
 
 Lemma invlg {G} : LInvertible ( * in G ) 1 ( ! ).
@@ -233,6 +236,16 @@ Structure Group (X : GroupS) := {
 Notation "< G >" := (@Build_Group _ G _)
   (at level 0, no associativity) : group_scope.
 Notation "{ 'grp' X  }" := (Group X) : group_scope.
+
+Definition lcoset {G : GroupS} (A : {ens G}) x := mulg^m x @: A.
+Definition rcoset {G : GroupS} (A : {ens G}) x := mulg^~ x @: A.
+Definition conjugate {G : GroupS} := bmaptwist (bmmcomp1 imens ((@conjg G)^~)).
+Program Definition normaliser {G : GroupS} (A : {ens G})
+  := [ x | conjugate A x <= A ].
+Next Obligation.
+  intros x y E. split; intros H [g [a H0]]; pose (forall_sigS H g) as H1;
+  simpl in *; apply H1; exists a; now rewrite E || rewrite <-E.
+Defined.
 
 Close Scope group_scope.
 Close Scope setoid_scope.
