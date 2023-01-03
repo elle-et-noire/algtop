@@ -34,7 +34,7 @@ Structure GroupS := {
   invg : Map gcarrier gcarrier;
   idg : gcarrier;
 
-  groupsprf :> IsGroupS mulg invg idg
+  groupsprf : IsGroupS mulg invg idg
 }.
 #[global] Existing Instance groupsprf.
 
@@ -80,7 +80,7 @@ Notation "! g 'in' G" := (@invg G g)
 Notation "! g" := ( ! g in _ )
   (at level 35, right associativity) : group_scope.
 
-Program Definition conjg {G : GroupS} := bmap (g : G) h => !g * (h * g).
+Program Definition conjg {G : GroupS} := dmap (g : G) h => !g * (h * g).
 Next Obligation.
   intros g1 g2 E1 h1 h2 E2. now rewrite E1, E2.
 Defined. 
@@ -166,6 +166,12 @@ Structure Morph (G H : GroupS) := {
 }.
 #[global] Existing Instance homprf.
 
+Definition morpheq {X Y} (f g : Morph X Y) :=
+  homfun f == homfun g.
+Program Canonical Structure MorphSetoid (X Y : GroupS) :=
+  [ Morph X Y | ==: morpheq ].
+Next Obligation. apply \ISE. Defined.
+
 Notation "'hom' 'on' f" := (@Build_Morph _ _ f _)
   (at level 200, no associativity).
 Notation "'hom' 'by' f " := (hom on (map by f))
@@ -177,7 +183,7 @@ Notation "G ~~> H" := (@Morph G H)
 
 Structure Isomorph (G H : GroupS) := {
   isofun :> Morph G H;
-  isoprf :> Bijective isofun
+  isoprf : Bijective isofun
 }.
 #[global] Existing Instance isoprf.
 
@@ -229,22 +235,54 @@ Class IsGroup {X : GroupS} (G : {ens X}) := {
 
 Structure Group (X : GroupS) := {
   suppg :> {ens X};
-  groupprf :> IsGroup suppg
+  groupprf : IsGroup suppg
 }.
 #[global] Existing Instance groupprf.
 
-Notation "< G >" := (@Build_Group _ G _)
+Notation "<{ G }>" := (@Build_Group _ G _)
   (at level 0, no associativity) : group_scope.
 Notation "{ 'grp' X  }" := (Group X) : group_scope.
 
+Definition groupeq {X} (G H : {grp X}) :=
+  suppg G == suppg H.
+Program Canonical Structure GroupSetoid (X : GroupS) :=
+  [ {grp X} | ==: groupeq ].
+Next Obligation. apply \ISE. Defined.
+
+Program Canonical Structure suppgM {X : GroupS} 
+  : Map {grp X} {ens X} := map x => suppg x.
+Next Obligation. now intros x. Defined.
+
 Definition lcoset {G : GroupS} (A : {ens G}) x := mulg^m x @: A.
 Definition rcoset {G : GroupS} (A : {ens G}) x := mulg^~ x @: A.
-Definition conjugate {G : GroupS} := bmaptwist (bmmcomp1 imens ((@conjg G)^~)).
+Definition conjugate {G : GroupS} :=
+  dmap21 (dmmcomp1 imens ((@conjg G)^~)).
 Program Definition normaliser {G : GroupS} (A : {ens G})
   := [ x | conjugate A x <= A ].
 Next Obligation.
-  intros x y E. split; intros H [g [a H0]]; pose (forall_sigS H g) as H1;
-  simpl in *; apply H1; exists a; now rewrite E || rewrite <-E.
+  intros x y E. split; intros H [g [a H0]];
+  pose (forall_sigS H g) as H1; simpl in *;
+  apply H1; exists a; now rewrite E || rewrite <-E.
+Defined.
+
+Definition normal {G : GroupS} (A B : {ens G}) :=
+  (A <= B) /\ (B <= normaliser A).
+Notation "A <| B" := (normal A B)
+  (at level 70, no associativity) : group_scope.
+
+Program Definition imgrp {X Y : GroupS} :=
+  dmap (f : Morph X Y) (G : {grp X}) =>
+  <{ (dmmcomp2 (@imens X Y) suppgM) f G }>.
+Next Obligation.
+  split.
+  - intros [y0 [g0 H0]] [y1 [g1 H1]]. existsS (g0 * g1).
+    apply mulgF. now rewrite morph, H0, H1.
+  - intros [y [g H]]. existsS (!g). apply invgF.
+    now rewrite H, morphV.
+  - existsS (1 in X). apply idgF. now rewrite morph1.
+Defined.
+Next Obligation.
+  intros f g H A B H0. now apply setoid.imens_obligation_2.
 Defined.
 
 Close Scope group_scope.

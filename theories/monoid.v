@@ -7,7 +7,7 @@ Delimit Scope monoid_scope with mnd.
 Open Scope setoid_scope.
 Open Scope monoid_scope.
 
-Definition Binop X := Binmap X X X.
+Definition Binop X := Dymap X X X.
 
 Class Associative {X : Setoid} (op : X -> X -> X) := {
   assoc : forall x y z, op x (op y z) == op (op x y) z 
@@ -30,7 +30,7 @@ Class Identical {X : Setoid} (op : X -> X -> X) e := {
 Class IsMonoidS `(mul : Binop supp) e :=
 {
   assocm :> Associative mul;
-  identrm :> Identical mul e;
+  identm :> Identical mul e;
 }.
 
 Structure MonoidS := {
@@ -38,7 +38,7 @@ Structure MonoidS := {
   mulm : Binop mcarrier;
   idm : mcarrier;
 
-  monoidsprf :> IsMonoidS mulm idm
+  monoidsprf : IsMonoidS mulm idm
 }.
 #[global] Existing Instance monoidsprf.
 
@@ -81,7 +81,7 @@ Ltac existsS T :=
   | |- exists _ : ?P, _ => assert P as H
   end; [intuition |exists H].
 
-Program Definition ensmulM {M : MonoidS} :=
+Program Canonical Structure ensmulM {M : MonoidS} :=
   [ {ens M} | *: imens2 ( * in M ), 1: [ens 1] ].
 Next Obligation.
   split; split.
@@ -102,7 +102,6 @@ Next Obligation.
     now rewrite E, I, identr.
   + intros a. exists a. existsS (1 in M). now rewrite identr.
 Defined.
-Canonical Structure ensmulM.
 
 Close Scope monoid_scope.
 Close Scope setoid_scope.
