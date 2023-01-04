@@ -118,10 +118,10 @@ Program Canonical Structure sigSSetoid `(P : Map X Prop) :=
 Next Obligation. apply \ISE. Defined.
 
 Program Canonical Structure inclS `{P : Map X Prop} 
-  : Map (sigS P) X :=  map x => sval x.
+  : Map (sigS P) X := map x => sval x.
 Next Obligation. now intros x. Defined.
 
-Structure Ensemble (X : Setoid) : Type := {
+Structure Ensemble (X : Setoid) := {
   ensconf :> Map X Prop;
 }.
 
@@ -155,7 +155,8 @@ Next Obligation. apply H. Defined.
 Next Obligation. now intros x y E. Defined.
 
 Definition enseq {X} (A B : {ens X}) := A <= B /\ B <= A.
-Program Definition EnsembleSetoid (X : Setoid) := [ ==: @enseq X].
+Program Canonical Structure EnsembleSetoid
+  (X : Setoid) := [ ==: @enseq X].
 Next Obligation.
   split.
   - intros A. split; now intros [x Ax].
@@ -163,14 +164,19 @@ Next Obligation.
   - intros A B C [AB BA] [BC CB]. split;
     now trans AB || trans CB.
 Defined.
-Canonical Structure EnsembleSetoid.
 
-Program Definition Subens {X : Setoid} := dmap by (@subens X).
+Program Canonical Structure Subens
+  {X : Setoid} := dmap by (@subens X).
 Next Obligation.
   intros A B [E1 E2] C D [E3 E4]. split; intros Lt;
   trans E2 || trans E1; now trans Lt.
 Defined.
-Canonical Structure Subens.
+
+Program Definition subens_ens {X} {A B : {ens X}}
+  (_ : A <= B) := [ x : B | A x ].
+Next Obligation.
+  intros x y E; split; intros; now rewrite <-E || rewrite E.
+Defined.
 
 Program Definition ensTfor (X : Setoid) := [ _ : X | True ].
 Next Obligation. now intros x. Defined.
@@ -178,7 +184,7 @@ Program Definition ens0 {X : Setoid} := [ _ : X | False ].
 Next Obligation. now intros x. Defined.
 Program Definition ens1 {X} a := [ x : X | x == a ].
 Next Obligation. intros x y E. now rewrite E. Defined.
-Program Definition ensU {X} (A B : {ens X}) := [ x : X | A x \/ B x ].
+Program Definition ensU {X} (A B : {ens X}) := [ x | A x \/ B x ].
 Next Obligation. intros x y E. now rewrite E. Defined.
 Program Definition ensI {X} (A B : {ens X}) := [ x in A | B x ].
 Next Obligation. intros x y E. now rewrite E. Defined.
@@ -213,8 +219,8 @@ Notation "A :\: B" := (ensD A B)
 Notation "A :\ a" := (A :\: [ens a])
   (at level 50, left associativity) : setoid_scope.
 
-Program Definition imens {X Y} := dmap (f : Map X Y) (A : {ens X})
-  => [ y | exists (a : A), y == f a ].
+Program Definition imens {X Y} := dmap (f : Map X Y)
+  (A : {ens X}) => [ y | exists (a : A), y == f a ].
 Next Obligation.
   intros x y E. split; intros [a H]; exists a;
   now rewrite <-E || rewrite E.
@@ -230,13 +236,15 @@ Defined.
 Notation "f @: A" := (@imens _ _ f A)
   (at level 24, right associativity) : setoid_scope.
 
-Program Definition preimens {X Y} (f : Map X Y) :=
-  map (B : {ens Y}) => [ x | B (f x) ].
+Program Definition preimens {X Y} := dmap (f : Map X Y)
+  (B : {ens Y}) => [ x | B (f x) ].
 Next Obligation. intros x y Exy. now rewrite Exy. Defined.
 Next Obligation.
-  intros A B [L1 L2]. split; intros [x P]; simpl in P;
-  apply (L1 (existS P)) || apply (L2 (existS P)).
-Defined.
+  intros f f0 Ef A A0 [L1 L2]. split; intros [x P]; simpl in *.
+  - rewrite <-(Ef x) by reflexivity. apply (L1 (existS P)).
+  - rewrite (Ef x) by reflexivity. apply (L2 (existS P)).
+Defined. 
+
 Notation "f -@: B" := (@preimens _ _ f B)
   (at level 24, right associativity) : setoid_scope.
 
@@ -296,7 +304,7 @@ Proof. split; intuition. Qed.
 
 Definition paireq {A B : Setoid} (ab1 ab2 : A * B) :=
   fst ab1 == fst ab2 /\ snd ab1 == snd ab2.
-Program Definition PairSetoid (X Y : Setoid) :=
+Program Canonical Structure PairSetoid (X Y : Setoid) :=
   [ X * Y | ==: paireq ].
 Next Obligation.
   split.
@@ -305,7 +313,6 @@ Next Obligation.
   - intros p1 p2 p3 [E1 E2] [E3 E4]. split;
     now rewrite E1 || rewrite E2.
 Defined.
-Canonical Structure PairSetoid.
 
 Definition pairin {X Y} (A : {ens X}) (B : {ens Y})
   (p : (X * Y)%type) := A (fst p) /\ B (snd p).
