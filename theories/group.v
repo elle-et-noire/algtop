@@ -101,16 +101,16 @@ Section GroupTheory.
   Lemma mulgA : forall {x y z}, x * (y * z) == (x * y) * z.
   Proof. now destruct G as [a b c d [[e] f g]]. Qed.
 
-  Lemma mulg1 : forall {x}, x * 1 == x.
+  Lemma mulg1 : forall x, x * 1 == x.
   Proof. now destruct G as [a b c d [e [f] g]]. Qed.
 
-  Lemma mulgV : forall {x}, x * !x == 1.
+  Lemma mulgV : forall x, x * !x == 1.
   Proof. now destruct G as [a b c d [e f [g]]]. Qed.
 
-  Lemma mul1g : forall {x}, 1 * x == x.
+  Lemma mul1g : forall x, 1 * x == x.
   Proof. now destruct (@identlg G). Qed.
 
-  Lemma mulVg : forall {x}, !x * x == 1.
+  Lemma mulVg : forall x, !x * x == 1.
   Proof. now destruct (@invlg G). Qed.
 
   Lemma mulgI g {x y} : x * g == y * g -> x == y.
@@ -135,7 +135,7 @@ Section GroupTheory.
     intros H. apply (@mulgI g). now rewrite <-assoc, invl, identr.
   Qed.
 
-  Lemma invgK {x} : !!x == x.
+  Lemma invgK x : !!x == x.
   Proof. apply (@mulgI (!x)). now rewrite invl, invr. Qed.
 
   Lemma eq_invg_sym {x y} : !x == y -> x == !y.
@@ -386,6 +386,51 @@ Next Obligation.
   rewrite <-Ha; [symmetry|]; now apply Ef.
 Defined.
 
+Definition coset_eq `{G : {subg X}} (x y : X) :=
+  G (x * !y).
+Program Definition Coset `(G : {subg X}) :=
+  [ X | ==: (@coset_eq _ G) ].
+Next Obligation.
+  split; unfold coset_eq.
+  - intros x. rewrite invr. apply idgF.
+  - intros x y H. pose (invgF _ (existS H)) as H0.
+    simpl in H0. now rewrite invMg, invgK in H0.
+  - intros x y z H1 H2.
+    pose (mulgF _ (existS H1) (existS H2)) as H.
+    simpl in H.
+    now rewrite assoc, <-(assoc x), mulVg, mulg1 in H.
+Defined.
+Notation "X / G" := (@Coset X G) : group_scope.
+
+Program Definition CosetGroup `(N : <| X) :=
+  [ X / N | *: (dmap xN yN => xN * yN),
+            !: (map xN => !xN),
+            1: 1 ].
+Next Obligation.
+  intros x x0 Ex y y0 Ey. unfold coset_eq in *.
+  rewrite invMg, assoc, <-(assoc x), <-(assoc).
+  rewrite <-(mulg1 x), <-(mulVg x0), (assoc x), <-(assoc _ x0).
+  pose (forall_sigS (mulgF _ (existS Ex))).
+  simpl in m. apply m. pose (mulgN(g := !x0) Ey).
+  simpl in m0. now rewrite invgK in m0.
+Defined.
+Next Obligation.
+  intros x x0 E. unfold coset_eq in *.
+   rewrite invgK.
+  pose (invgF _ (existS E)). simpl in m.
+  rewrite (invMg), invgK in m.
+  pose (mulgN(g := x0) m). simpl in m0.
+  now rewrite !(assoc), mulVg, mul1g in m0.
+Defined.
+Next Obligation.
+  split; split; simpl; unfold coset_eq.
+  - intros x y z. rewrite assoc, mulgV. apply idgF.
+  - intros x. rewrite mulg1, mulgV. apply idgF.
+  - intros x. rewrite mulgV, mul1g, invg1. apply idgF.
+Defined.
+
+Notation "X </> N" := (@CosetGroup X N)
+  (at level 35, right associativity) : group_scope.
 
 Close Scope group_scope.
 Close Scope setoid_scope.
