@@ -77,21 +77,22 @@ Notation "'dmap' x y => m" := (dmap by fun x y => m)
 Definition mcurry `(f : Dymap X Y Z) (x : X) := map by (f x).
 
 Program Definition Comap {X Y : Setoid}
-  := map x => map (f : Map X Y) => f x.
+  := dmap (f : Map X Y) x => f x.
 Next Obligation.
-  intros f1 f2 E. now rewrite (E x) by reflexivity.
+  intros f f0 Ef a a0 Ea. now apply Ef.
 Defined.
-Next Obligation.
-  intros x1 x2 E f1 f2 E2. simpl. rewrite E.
-  now rewrite (E2 x2) by reflexivity.
-Defined.
+Notation "< f , a >" := (Comap f a)
+  (at level 200, f, a at level 0, no associativity)
+  : setoid_scope.
+
+Lemma map_comap `{f : Map X Y} {a : X} : f a == <f, a>.
+Proof. reflexivity. Qed.
 
 Structure SetoidInducer := {
   inducee : Type;
   inducer : Setoid;
   indfun : inducee -> inducer
 }.
-
 
 Program Definition InducedSetoid {X} {Y : Setoid} (f : X -> Y) :=
   [ X | ==: fun x1 x2 : X => f x1 == f x2].
@@ -120,6 +121,10 @@ Next Obligation. apply \ISE. Defined.
 Program Canonical Structure inclS `{P : Map X Prop} 
   : Map (sigS P) X := map x => sval x.
 Next Obligation. now intros x. Defined.
+
+Lemma val_sval `{P : Map X Prop} {x : X} (H : P x)
+  :  x == sval (existS H).
+Proof. reflexivity. Qed.
 
 Structure Ensemble (X : Setoid) := {
   ensconf :> Map X Prop;
@@ -228,9 +233,7 @@ Defined.
 Next Obligation.
   intros f1 f2 Ef A1 A2 [L1 L2]. split; intros [y [a E]];
   exists (inclmap L1 a) || exists (inclmap L2 a); simpl;
-  assert (f1 == f2) as Ef0 by apply Ef;
-  assert (y == Comap (sval a) _) as E0 by apply E;
-  now rewrite Ef0 in E0 || rewrite <-Ef0 in E0.
+  rewrite map_comap; now rewrite <-Ef || rewrite Ef.
 Defined.
 
 Notation "f @: A" := (@imens _ _ f A)
