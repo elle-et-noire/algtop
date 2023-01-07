@@ -82,25 +82,26 @@ Ltac existsS T :=
   end; [intuition |exists H].
 
 Program Canonical Structure ensmulM {M : MonoidS} :=
-  [ {ens M} | *: imens2 ( * in M ), 1: [ens 1] ].
+  [ {ens M} | *: imens2 ( * in M ), 1: [ == 1] ].
 Next Obligation.
   split; split.
   - intros A B C. split.
-  + intros [g1 [a [[g2 [b [c E1]]] E2]]]. simpl in *.
-    existsS (a * b). { now exists a, b. }
-    exists c. now rewrite E2, E1, assoc.
-  + intros [g1 [[g2 [a [b E1]]] [c E2]]]. simpl in *.
-    exists a. existsS (b * c);
-    now exists b, c || rewrite E2, E1, assoc.
+  + intros [a [[m [b [c E]]] E0]].
+    existsS (a * b); (now exists a, b) || exists c.
+    now rewrite <-assoc, <-E, <-E0.
+  + intros [[m [a [b E]]] [c E0]]. 
+    exists a. existsS (b * c). now exists b, c.
+    now rewrite assoc, <-E, <-E0.
   - split. intros A. split. 
-  + intros [g [[i I] [[a Aa] E]]]. simpl in *.
-    now rewrite E, I, identl.
-  + intros [a Aa]. simpl. existsS (1 in M).
-    exists (existS Aa). now rewrite identl.
+  + intros [[i I] [[a Aa] E]]. simpl in *.
+    now rewrite <-H, E, I, mul1m.
+  + intros Ay. existsS (1 in M).
+    existsS y. now rewrite mul1m.
   - split. intros A. split.
-  + intros [g [[a Aa] [[i I] E]]]. simpl in *.
-    now rewrite E, I, identr.
-  + intros a. exists a. existsS (1 in M). now rewrite identr.
+  + intros [[a Aa] [[i I] E]]. simpl in *.
+    now rewrite <-H, E, I, mulm1.
+  + intros Ay. existsS y. 
+    existsS (1 in M). now rewrite identr.
 Defined.
 
 Close Scope monoid_scope.
