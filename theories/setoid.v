@@ -4,8 +4,11 @@ Set Implicit Arguments.
 Require Export Coq.Program.Basics Coq.Program.Tactics
   Coq.Setoids.Setoid Coq.Classes.Morphisms.
 
+Ltac trans P := apply (transitivity P).
 Ltac rewrite2 E := rewrite E || rewrite <-E.
 Ltac rewrite2_in E H := (rewrite E in H) || (rewrite <-E in H).
+Ltac simpeq := simpl; autounfold with eq; simpl.
+Ltac simpeq_all := simpl in *; autounfold with eq in *; simpl in *.
 
 Declare Scope setoid_scope.
 Open Scope setoid_scope.
@@ -33,6 +36,9 @@ Notation "x == y" := (x == y in _)
 Canonical Structure PropSetoid := [ ==: iff ].
 Notation "'[Prop]'" := PropSetoid : setoid_scope.
 
+Lemma sym {X : Setoid} {x y : X} : (x == y) == (y == x).
+Proof. split; intros H; now symmetry. Defined.
+
 Structure Map (X Y : Setoid) := {
   mapfun :> X -> Y;
   mapprf : Proper ((==) ==> (==)) mapfun
@@ -46,6 +52,7 @@ Notation "'map' x => m" := (map by fun x => m)
 
 Definition map_eq {X Y} (f g : Map X Y)
   := ((==) ==> (==))%signature f g.
+#[global] Hint Unfold map_eq : eq.
 Program Canonical Structure MapSetoid (X Y : Setoid)
   := [ Map X Y | ==: map_eq ].
 Next Obligation.
@@ -74,6 +81,7 @@ Notation "'dmap' x y => m" := (dmap by fun x y => m)
 
 Definition dymap_eq {X Y Z} (f g : Dymap X Y Z) :=
   ((==) ==> (==) ==> (==))%signature f g.
+#[global] Hint Unfold dymap_eq : eq.
 Program Canonical Structure DymapSetoid {X Y Z : Setoid} :=
   [ Dymap X Y Z | ==: dymap_eq ].
 Next Obligation.
@@ -127,6 +135,7 @@ Notation "{ 'ens' X }" := (@Ensemble X)
 
 Definition ens_eq {X} (A B : {ens X}) :=
   ensconf A == ensconf B.
+#[global] Hint Unfold ens_eq : eq.
 Program Canonical Structure EnsembleSetoid X
   := [ {ens X} | ==: ens_eq ].
 Notation "[ 'ens' X ]" := (@EnsembleSetoid X)
@@ -152,6 +161,7 @@ Notation "$ x" := (sval x)
 
 Definition sigS_eq `{P : {pred X}} (e0 e1 : sigS P)
   := e0 == e1.
+#[global] Hint Unfold sigS_eq : eq.
 Program Canonical Structure sigSSetoid `(P : {pred X}) :=
   [ sigS P | ==: sigS_eq ].
 Notation "{ | P }" := (sigSSetoid P)
@@ -205,13 +215,11 @@ Proof.
 Qed.
 #[global] Existing Instance subens_trans.
 
-Ltac trans P := apply (transitivity P).
-
 Program Definition inclmap {X} {A B : {ens X}} (H : A <= B)
   : Map A B := map x => $[$x].
 
-Definition ens_eq' {X} (A B : {ens X}) := A <= B /\ B <= A.
-Lemma enseq'_eq {X} (A B : {ens X}) : ens_eq' A B <-> A == B.
+Definition ens_eq2 {X} (A B : {ens X}) := A <= B /\ B <= A.
+Lemma enseq2_eq {X} (A B : {ens X}) : (ens_eq2 A B) == (A == B).
 Proof.
   split.
   - intros [H H0] x y E. rewrite E. split;
@@ -244,6 +252,9 @@ Program Definition ensD {X} (A B : {ens X}) := [ x in A | ~ B x ].
 Next Obligation. intros x y E. now rewrite E. Defined.
 Program Definition powens {X} (A : {ens X}) := [ B | B <= A ].
 Next Obligation. intros B C E. now rewrite E. Defined.
+
+Program Definition idTmap {X : Setoid} := map _ : X => True.
+Definition inT {X : Setoid} (a : X) := @Build_sigS X idTmap a I.
 
 Notation "\0" := (@ens0 _) : setoid_scope.
 Notation "[ == a ]" := (ens1 a)
@@ -378,6 +389,7 @@ Proof. split; intuition. Qed.
 
 Definition pair_eq {A B : Setoid} (ab1 ab2 : A * B) :=
   fst ab1 == fst ab2 /\ snd ab1 == snd ab2.
+#[global] Hint Unfold pair_eq : eq.
 Program Canonical Structure PairSetoid (X Y : Setoid) :=
   [ X * Y | ==: pair_eq ].
 Next Obligation.

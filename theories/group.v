@@ -288,10 +288,6 @@ Section GroupTheory.
   Qed.
 End GroupTheory.
 
-#[global] Hint Unfold sigS_eq : eq.
-Ltac simpeq := simpl; autounfold with eq; simpl.
-Ltac simpeq_all := simpl in *; autounfold with eq in *; simpl in *.
-
 Program Coercion grp_grpS `(G : {subg X}) : Group :=
   [ G | *: (dmap g h => $[_, mulgF g h]),
         !: (map g => $[_, invgF g]),
@@ -346,8 +342,8 @@ Proof.
   - intros [U HU]. destruct (H $[_, HU]); now simpl.
 Defined.
 
-Program Definition generated {X : Group} (A : {ens X})
-  := <(ensIInf [ B : {ens X} | IsSubg B /\ A <= B ])>.
+Program Definition generated {X : Group} (A : {ens X}) :=
+  <(ensIInf [ B : {ens X} | IsSubg B /\ A <= B ])>.
 Next Obligation.
   intros B B0 E. split; intros [H H0]; split;
   try rewrite map_comap; now rewrite2 E.
@@ -355,6 +351,25 @@ Defined.
 Next Obligation.
   apply subgIInf_subg. now intros U [Usg AB].
 Defined.
+
+Lemma gensubg_eq_subg {X : Group} {A : {ens X}} : 
+  IsSubg A -> A == generated A.
+Proof.
+  intros H a a0 E. rewrite E. split; intros H0.
+  - intros U. destruct U. destruct m. 
+    now pose (d $[_, H0]).
+  - simpl in *. sapply (forall_sigS H0).
+    split; intuition. now destruct x.
+Qed.
+
+Lemma gen_compat_lt {X : Group} {A B : {ens X}} :
+  A <= B -> generated A <= generated B.
+Proof.
+  intros H a U. destruct U. simpl in *.
+  destruct m. destruct a. simpl in *.
+  sigapply m. split; intuition.
+  apply (H1 (inclmap H x)).
+Qed.
 
 Definition conjugate {G : Group} :=
   dmap21 (imens o1 ((@conjg G)^~)).
@@ -511,6 +526,16 @@ Notation "X </> N" := (@CosetGroup X N)
 Program Definition projhom `{N : <| G} : G ~~> G </> N
   := hom on projmap.
 
+Lemma projhom_surj `{N : <| G} : Surjective (@projhom _ N).
+Proof.
+  split. intros y. exists y. simpeq. rewrite mulgV. apply idgF.
+Qed.
+#[global] Existing Instance projhom_surj.
+
+Lemma projhom_ker `{N : <| G} (g : G)
+  : N g == (@projhom _ N g == 1).
+Proof. simpeq. now rewrite invg1, mulg1. Qed.
+
 Program Definition Iso1 `(f : G ~~> H) 
   : (G </> kernel f) <~> (f <@> subgTfor G)
   := iso x => $[f x, _].
@@ -525,10 +550,90 @@ Next Obligation.
 Defined.
 Next Obligation.
   split; split.
-  - intros x y E. simpeq_all. 
+  - intros x y E. simpeq_all.
     now rewrite morph, morphV, <-mulgT, mul1g, invgK.
   - intros [y [[x T] Hx]]. exists x. now simpeq_all.
 Defined.
+
+Program Definition commg {G : Group} : Binop G :=
+  dmap (x : G) y => !x * x ^ y.
+Next Obligation.
+  intros x x0 E y y0 E0. now rewrite E, E0.
+Defined.
+Notation "[ g , h ]" := (@commg _ g h)
+  (at level 0, g, h at level 99, format "[ g ,  h ]")
+  : group_scope.
+
+Program Definition commorig {G : Group} (A B : {ens G}) :=
+  [ g : G | exists (a : A) (b : B), g == [a, b] ].
+Next Obligation.
+  intros C C0 E. simpeq_all. split; intros [a [b H]];
+  exists a, b; now rewrite2 E.
+Defined.
+
+Definition commutator {G : Group} (A B : {ens G}) :=
+  generated (commorig A B).
+Notation "[: A , B :]" := (@commutator _ A B)
+  (at level 0, A, B at level 99, format "[: A  ,  B :]")
+  : group_scope. 
+
+Program Definition derived (G : Group) := 
+  [:subgTfor G, subgTfor G:] <<| G.
+Next Obligation.
+  split. intros g [h [[a H] E]] U. simpl. pose (H U).
+  rewrite E. simpl. destruct U. destruct m0.
+  pose (Usg := Build_Subg i). simpl in *. 
+  pose (forall_sigS d). simpl in m0.
+  assert (sval (!a * (!g * (a * g) ))).
+  { apply m0. now exists (@Build_sigS _ idTmap a I)
+  , (@Build_sigS _ idTmap g I). }
+  pose (@mulgF _ Usg $[_, m] $[_, H0]). simpl in m1.
+  now rewrite assoc, mulgV, mul1g in m1.
+Defined.
+
+Class Commute {X : Setoid} (op : X -> X -> X) := {
+  commute : forall a b, op a b == op b a
+}.
+
+Definition IsCommgrp (G : Group) := Commute (@mulg G).
+
+Lemma CG_commg1 {G : Group}
+ : IsCommgrp G == (forall x y : G, [x, y] == 1).
+Proof.
+  split; intros H; simpl in *.
+  - intros x y. rewrite sym, !mulTg, mulg1. now destruct H.
+  - split. intros a b. pose (H b a) as H0.
+    now rewrite sym, !mulTg, mulg1 in H0.
+Qed.
+
+Lemma quotDG_comm (G : Group) : IsCommgrp (G </> derived G).
+Proof.
+  split. intros a b.
+  destruct (surj projhom a) as [a0 Ha].
+  destruct (surj projhom b) as [b0 Hb].
+  rewrite Ha, Hb, <-(invgK (_ * projhom a0)), <-(mulg1 (!!_)),
+    mulTg, invMg, <-assoc, <-!morphV, <-!morph, <-projhom_ker.
+  intros [U [H H0]]. sigapply H0. now exists (inT a0), (inT b0).
+Defined.
+
+Lemma hom_hold_comm `{f : G ~~> H} {x y : G}
+  : f [x, y] == [f x, f y].
+Proof. simpl. now rewrite !morph, !morphV. Qed.
+
+Lemma quot_comm_NDG `(N : <| G) : 
+  IsCommgrp (G </> N) -> derived G <= N.
+Proof.
+  intros H.
+  assert (commorig (subgTfor G) (subgTfor G) <= N). {
+    rewrite CG_commg1 in H.
+    intros a. destruct a. destruct m. destruct e.
+    simpl. rewrite e, projhom_ker.
+    rewrite <-(H (projhom x) (projhom x0)).
+    apply hom_hold_comm.
+  } 
+  rewrite (gensubg_eq_subg(A := N));
+  [now apply gen_compat_lt | intuition].
+Qed. 
 
 Close Scope group_scope.
 Close Scope setoid_scope.

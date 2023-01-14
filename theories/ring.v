@@ -7,10 +7,6 @@ Delimit Scope ring_scope with rng.
 Open Scope setoid_scope.
 Open Scope ring_scope.
 
-Class Commute {X : Setoid} (op : X -> X -> X) := {
-  commute : forall a b, op a b == op b a
-}.
-
 Class Distributive {X : Setoid} (add mul : X -> X -> X) := {
   distl : forall a b c, mul a (add b c) == add (mul a b) (mul a c);
   distr : forall a b c, mul (add a b) c == add (mul a c) (mul b c)
