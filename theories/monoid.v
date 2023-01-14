@@ -7,6 +7,7 @@ Delimit Scope monoid_scope with mnd.
 Open Scope setoid_scope.
 Open Scope monoid_scope.
 
+Definition Ope X := Map X X.
 Definition Binop X := Dymap X X X.
 
 Class Associative {X : Setoid} (op : X -> X -> X) := {
@@ -87,7 +88,7 @@ Next Obligation.
   split; split.
   - intros A B C. split.
   + intros [a [[m [b [c E]]] E0]].
-    existsS (a * b); (now exists a, b) || exists c.
+    existsS (a * b); [now exists a, b | exists c].
     now rewrite <-assoc, <-E, <-E0.
   + intros [[m [a [b E]]] [c E0]]. 
     exists a. existsS (b * c). now exists b, c.

@@ -3,3 +3,5 @@
 theories/setoid.v
 theories/monoid.v
 theories/group.v
+theories/ring.v
+theories/topology.v

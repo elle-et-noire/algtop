@@ -7,8 +7,6 @@ Open Scope setoid_scope.
 Open Scope monoid_scope.
 Open Scope group_scope.
 
-
-
 Class LInvertible {X : Setoid} (op : X -> X -> X) e (inv : X -> X) := {
   invl : forall x, op (inv x) x == e
 }.
@@ -23,20 +21,20 @@ Class Invertible `{X : Setoid} (op : X -> X -> X) e (inv : X -> X) := {
 }.
 #[global] Existing Instances inv_invl inv_invr.
 
-Class IsGroupS `(mul : Binop supp) (inv : Map supp supp) e :=
+Class IsGroup `(mul : Binop supp) (inv : Ope supp) e :=
 {
   assocg :> Associative mul;
   identrg :> RIdentical mul e;
   invrg :> RInvertible mul e inv
 }.
 
-Structure GroupS := {
+Structure Group := {
   gcarrier :> Setoid;
   mulg : Binop gcarrier;
-  invg : Map gcarrier gcarrier;
+  invg : Ope gcarrier;
   idg : gcarrier;
 
-  groupsprf : IsGroupS mulg invg idg
+  groupsprf : IsGroup mulg invg idg
 }.
 #[global] Existing Instance groupsprf.
 
@@ -46,31 +44,34 @@ Arguments idg {_}.
 
 Lemma identlg {G} : LIdentical (@mulg G) idg.
 Proof.
-  split. intros x. rewrite <-identr. rewrite <-(invr (invg x)) at 2.
+  split. intros x. rewrite <-identr.
+  rewrite <-(invr (invg x)) at 2.
   now rewrite assoc, <-(assoc idg), invr, identr,
     <-(invr x), <-assoc, invr, identr.
 Qed.
 #[global] Existing Instance identlg.
 
-Program Coercion grps_mnds (G : GroupS) :=
+Program Coercion grps_mnds (G : Group) :=
   [ gcarrier G | *: mulg, 1: idg ].
 Next Obligation.
   destruct G as [s mul inv id [A RI RV]]; split;
-  intuition || split; intuition.
+  [|split]; intuition.
 Defined.
 
-Program Definition ensg_ensm {X : GroupS} (G : {ens X})
+Program Definition ensg_ensm {X : Group} (G : {ens X})
   : {ens grps_mnds X} := G.
 
 Notation "[ A | *: op , !: inv , 1: id ]" :=
-  (@Build_GroupS A op inv id _)
+  (@Build_Group A op inv id _)
   (at level 0, A, op, inv, id at level 99) : group_scope.
-Notation "[ *: op , !: inv , 1: id ]" := [ _ | *: op, !: inv, 1: id]
+Notation "[ *: op , !: inv , 1: id ]"
+  := [ _ | *: op, !: inv, 1: id]
   (at level 0, op, inv, id at level 99) : group_scope.
 Notation "(  * 'in' G  )" := (@mulg G) : group_scope.
 Notation "( * )" := ( * in _ ) : group_scope.
 Notation "g * h 'in' G" := (@mulg G g h)
-  (at level 40, h at next level, left associativity) : group_scope.
+  (at level 40, h at next level, left associativity)
+  : group_scope.
 Notation "g * h" := (g * h in _) : group_scope.
 Notation "1 'in' G" := (@idg G)
   (at level 0, G at level 99, no associativity) : group_scope.
@@ -84,7 +85,8 @@ Notation "! g" := ( ! g in _ )
   (at level 35, right associativity,
   format "! g") : group_scope.
 
-Program Definition conjg {G : GroupS} := dmap (h : G) g => !g * (h * g).
+Program Definition conjg {G : Group} :=
+  dmap (h : G) g => !g * (h * g).
 Next Obligation.
   intros g1 g2 E1 h1 h2 E2. now rewrite E1, E2.
 Defined. 
@@ -98,7 +100,7 @@ Qed.
 #[global] Existing Instance invlg.
 
 Section GroupTheory.
-  Context {G : GroupS}.
+  Context {G : Group}.
   Implicit Types x y g : G.
   Lemma mulgA : forall {x y z}, x * (y * z) == (x * y) * z.
   Proof. now destruct G as [a b c d [[e] f g]]. Qed.
@@ -115,34 +117,40 @@ Section GroupTheory.
   Lemma mulVg : forall x, !x * x == 1.
   Proof. now destruct (@invlg G). Qed.
 
-  Lemma mulgI g {x y} : x * g == y * g -> x == y.
+  Lemma mulgI g {x y} : (x == y) == (x * g == y * g).
   Proof.
-    intros H.
-    now rewrite <-identr, <-(identr y), <-(invr g), 2!assoc, H.
+    split; intros H; [|rewrite <-mulg1, <-(mulg1 y),
+    <-(invr g), 2!assoc]; now rewrite H.
   Qed.
 
-  Lemma mulIg g {x y} : g * x == g * y -> x == y.
+  Lemma mulIg g {x y} : (x == y) == (g * x == g * y).
   Proof.
-    intros H.
-    now rewrite <-identl, <-(identl y), <-(invl g), <-2!assoc, H.
-  Qed.
-  
-  Lemma mulTg {g x y} : g * x == y -> x == !g * y.
-  Proof.
-    intros H. apply (@mulIg g). now rewrite assoc, invr, identl.
+    split; intros H; [|rewrite <-mul1g, <-(mul1g y),
+    <-(invl g), <-2!assoc]; now rewrite H.
   Qed.
 
-  Lemma mulgT {g x y} : x * g == y -> x == y * !g.
+  Lemma mulTg {g x y} : (x == !g * y) == (g * x == y).
   Proof.
-    intros H. apply (@mulgI g). now rewrite <-assoc, invl, identr.
+    split; intros H.
+    - now rewrite H, assoc, mulgV, mul1g.
+    - now rewrite <-H, assoc, mulVg, mul1g.
+  Qed.
+
+  Lemma mulgT {g x y} : (x == y * !g) == (x * g == y).
+  Proof.
+    split; intros H.
+    - now rewrite H, <-assoc, mulVg, mulg1.
+    - now rewrite <-H, <-assoc, mulgV, mulg1.
   Qed.
 
   Lemma invgK x : !!x == x.
   Proof. apply (@mulgI (!x)). now rewrite invl, invr. Qed.
 
-  Lemma eq_invg_sym {x y} : !x == y -> x == !y.
-  Proof. intros H. now rewrite <-H, invgK. Qed.
- 
+  Lemma eq_invg_sym {x y} : (!x == y) == (x == !y).
+  Proof.
+    split; intros H; now rewrite2 H; rewrite invgK.
+  Qed.
+
   Lemma invMg {x y} : !(x * y) == !y * !x.
   Proof.
     rewrite <-(identr (!x)). apply mulTg, mulTg.
@@ -154,26 +162,29 @@ Section GroupTheory.
     rewrite <-(identr (!1)). symmetry; apply mulTg, identl.
   Qed.
 
-  Lemma invg_inj {x y} : x * y == 1 -> y == !x.
+  Lemma invg_inj {x y} : (y == !x) == (x * y == 1).
   Proof.
-    intros H. rewrite <-(identr (!x)). now apply mulTg.
+    split; intros H.
+    - now rewrite H, mulgV.
+    - now rewrite <-(mulg1 (!x)), <-H, assoc, mulVg, mul1g.
   Qed.
+
+  Lemma invJK x y : ((x ^ y) ^ !y) == x.
+  Proof.
+    simpl. now rewrite invgK, !assoc, 
+      mulgV, mul1g, <-assoc, mulgV, mulg1.
+  Qed. 
 End GroupTheory.
 
-Class IsMorph {G H : GroupS} (f : Map G H) := {
+Class IsMorph {G H : Group} (f : Map G H) := {
   morph : forall x y, f (x * y) == (f x) * (f y) in H
 }.
 
-Structure Morph (G H : GroupS) := {
+Structure Morph (G H : Group) := {
   homfun :> Map G H;
   homprf : IsMorph homfun
 }.
 #[global] Existing Instance homprf.
-
-Definition morpheq {X Y} (f g : Morph X Y) :=
-  homfun f == homfun g.
-Program Canonical Structure MorphSetoid (X Y : GroupS) :=
-  [ Morph X Y | ==: morpheq ].
 
 Notation "'hom' 'on' f" := (@Build_Morph _ _ f _)
   (at level 200, no associativity).
@@ -184,7 +195,14 @@ Notation " 'hom' x => m " := (hom by fun x => m)
 Notation "G ~~> H" := (@Morph G H)
   (at level 99, no associativity) : group_scope.
 
-Structure Isomorph (G H : GroupS) := {
+Definition morpheq {X Y} (f g : Morph X Y) :=
+  homfun f == homfun g.
+Program Canonical Structure MorphSetoid (X Y : Group) :=
+  [ Morph X Y | ==: morpheq ].
+Notation "[ G ~> H ]" := (@MorphSetoid G H)
+  (at level 0, G, H at level 99, no associativity) : group_scope.
+
+Structure Isomorph (G H : Group) := {
   isofun :> Morph G H;
   isoprf : Bijective isofun
 }.
@@ -218,22 +236,22 @@ Section HomTheory.
   Context `{f: Morph G H}.
   Lemma morph1 : f 1 == 1.
   Proof.
-    apply (mulgI (f 1)). now rewrite <-morph, 2!identl.
+    now rewrite (mulgI (f 1)), <-morph, 2!mul1g.
   Qed.
 
   Lemma morphV : forall x, f (!x) == !(f x).
   Proof.
-    intros x. rewrite <-(identr (!(f x))).
-    apply mulTg. now rewrite <-morph, invr, morph1.
+    intros x. now rewrite <-(mulg1 (!f x)), mulTg,
+     <-morph, invr, morph1.
   Qed.
 End HomTheory.
 
-Class IsSubg {X : GroupS} (G : {ens X}) := {
+Class IsSubg {X : Group} (G : {ens X}) := {
   fermg : forall x y : G, G (x * !y);
   idgF : G 1
 }.
 
-Structure Subg (X : GroupS) := {
+Structure Subg (X : Group) := {
   suppg :> {ens X};
   groupprf : IsSubg suppg
 }.
@@ -246,79 +264,115 @@ Notation "{ 'subg' X }" := (@Subg X)
 
 Definition subg_eq {X} (G H : {subg X}) :=
   suppg G == suppg H.
-Program Canonical Structure SubgSetoid (X : GroupS) :=
+Program Canonical Structure SubgSetoid (X : Group) :=
   [ {subg X} | ==: subg_eq ].
-
-Program Canonical Structure suppgM {X : GroupS} 
+Notation "[ 'subg' X ]" := (@SubgSetoid X)
+  (at level 0, format "[ 'subg'  X ]") : group_scope.
+Program Canonical Structure suppgM {X : Group} 
   : Map {subg X} {ens X} := map x => suppg x.
 
 Definition subgconf `(G : {subg X}) := fun x => (suppg G) x.
-Coercion subgconf : Subg >-> Funclass.
 
 Section GroupTheory.
-  Context {X : GroupS} {G : {subg X}}.
+  Context {X : Group} {G : {subg X}}.
   Implicit Types x y : G.
   Lemma invgF x : G (!x).
   Proof.
-    rewrite <-identl, (val_sval idgF). apply fermg.
+    rewrite <-mul1g, (val_sval idgF). apply fermg.
   Qed.
 
   Lemma mulgF x y : G (x * y).
   Proof.
-    rewrite <-(@invgK _ y), 2!(val_sval (invgF _)).
+    rewrite <-(invgK y), 2!(val_sval (invgF _)).
     apply fermg.
   Qed.
 End GroupTheory.
 
-Program Coercion grp_grpS `(G : {subg X}) : GroupS :=
+#[global] Hint Unfold sigS_eq : eq.
+Ltac simpeq := simpl; autounfold with eq; simpl.
+Ltac simpeq_all := simpl in *; autounfold with eq in *; simpl in *.
+
+Program Coercion grp_grpS `(G : {subg X}) : Group :=
   [ G | *: (dmap g h => $[_, mulgF g h]),
         !: (map g => $[_, invgF g]),
         1: $[_, idgF] ].
 Next Obligation.
-  intros g g0 Eg h h0 Eh. simpl.
-  unfold sigS_eq in *. simpl. now rewrite Eg, Eh.
+  intros g g0 Eg h h0 Eh. simpeq. now rewrite Eg, Eh.
 Defined.
 Next Obligation.
-  intros g g0 Eg. simpl. unfold sigS_eq in *. simpl.
-  now rewrite Eg.
+  intros g g0 Eg. simpeq. now rewrite Eg.
 Defined.
 Next Obligation.
-  split; split.
-  - intros x y z. simpl. unfold sigS_eq. simpl.
-    now rewrite assoc.
-  - intros x. simpl. unfold sigS_eq. simpl.
-    now rewrite identr.
-  - intros x. simpl. unfold sigS_eq. simpl.
-    now rewrite invr.
+  split; split; intros; simpeq;
+  now rewrite assoc || rewrite mulg1 || rewrite mulgV.
 Defined.
 
 Program Definition inclhom {X} {H G : {subg X}}
    (L : H <= G) : H ~~> G := hom on (inclmap L).
 Next Obligation.
-  split. intros x y. simpl. now unfold sigS_eq.
+  split. intros x y. now simpeq.
 Defined.
 
-Definition conjugate {G : GroupS} :=
-  dmap21 (dmmcomp1 imens ((@conjg G)^~)).
+Program Canonical Structure IsSubgM {X : Group} :=
+  map by (@IsSubg X).
+Next Obligation.
+  intros A A0 E. split; intros [C I]; split; simpl;
+  try (now rewrite map_comap in I; rewrite2_in E I);
+  intros [x Hx] [y Hy]; simpl; rewrite map_comap;
+  rewrite map_comap in Hx; rewrite map_comap in Hy;
+  [rewrite <-E in * | rewrite E in *];
+  simpl in *; sapply (C $[_, Hx] $[_, Hy]).
+Defined.
+
+Program Definition subgTfor (X : Group) := <(ensTfor X)>.
+
+Program Definition subgI {X} (H0 H1 : {subg X})
+  := <(H0 :&: H1)>.
+Next Obligation.
+  split.
+  - intros [x [H0x H1x]] [y [H0y H1y]]. split; simpl.
+  + apply (fermg $[_, H0x] $[_, H0y]).
+  + apply (fermg $[_, H1x] $[_, H1y]).
+  - split; simpl; apply idgF.
+Defined.
+
+Lemma subgIInf_subg {X : Group} (S : {ens {ens X}}) :
+  (forall U, S U -> @IsSubg X U) -> IsSubg (ensIInf S).
+Proof.
+  intros H. split.
+  - intros [x Hx] [y Hy]. simpl in *.
+    intros [U HU]. simpl. destruct (H U HU).
+    sapply (fermg0 $[_, Hx $[_, HU]] $[_, Hy $[_, HU]]).
+  - intros [U HU]. destruct (H $[_, HU]); now simpl.
+Defined.
+
+Program Definition generated {X : Group} (A : {ens X})
+  := <(ensIInf [ B : {ens X} | IsSubg B /\ A <= B ])>.
+Next Obligation.
+  intros B B0 E. split; intros [H H0]; split;
+  try rewrite map_comap; now rewrite2 E.
+Defined.
+Next Obligation.
+  apply subgIInf_subg. now intros U [Usg AB].
+Defined.
+
+Definition conjugate {G : Group} :=
+  dmap21 (imens o1 ((@conjg G)^~)).
 Notation "A :^ x" := (conjugate A x)
   (at level 35, right associativity) : group_scope.
 
-Ltac sapply H :=
-  let m := fresh "m" in
-  pose (forall_sigS H) as m; simpl in m;
-  apply m; simpl.
-
-Program Definition normaliser {G : GroupS} (A : {ens G})
+Program Definition normaliser {G : Group} (A : {ens G})
   := [ x | A :^ x <= A ].
 Next Obligation.
   intros x y E. split; intros H [g [a H0]];
-  sapply H; exists a; now rewrite E || rewrite <-E.
+  sigapply H; exists a; now rewrite2 E.
 Defined.
 
 Class IsNormal `(N : {subg G}) := {
   normal : forall g : G, N :^ g <= N
 }.
-Structure Normalsg (X : GroupS) := {
+
+Structure Normalsg (X : Group) := {
   suppsg :> {subg X};
   nsgprf :> IsNormal suppsg
 }.
@@ -332,18 +386,24 @@ Notation "N <<| G" := (@Build_Normalsg G N _)
 Definition nsg_eq {X} (G H : <| X) :=
   suppsg G == suppsg H.
 Program Canonical Structure NormalsgSetoid
-  (X : GroupS) := [ <| X | ==: nsg_eq ].
-
-Program Canonical Structure suppsgM {X : GroupS}
+  (X : Group) := [ <| X | ==: nsg_eq ].
+Notation "[ 'nsg' X ]" := (@NormalsgSetoid X)
+  (at level 0, format "[ 'nsg'  X ]") : group_scope.
+Program Canonical Structure suppsgM {X : Group}
   : Map (<| X) {subg X} := map x => suppsg x.
 
-Lemma mulgN `{N : <| X} {n g : X} : N n -> N (n ^ g).
+Lemma normalJF `{N : <| X} {n g : X} : N n -> N (n ^ g).
 Proof.
-  intros Nn. sapply (normal(g := g)).
+  intros Nn. sigapply (normal(g := g)).
   now existsS n.
 Qed.
 
-Program Definition imsubg {X Y : GroupS} :=
+Lemma normalVJF `{N : <|X} {n} g : N (n ^ g) -> N n.
+Proof.
+  intros Nng. rewrite <-(invJK _ g). now apply normalJF.
+Qed. 
+
+Program Definition imsubg {X Y : Group} :=
   dmap (f : Morph X Y) (G : {subg X}) => <(f @: G)>.
 Next Obligation.
   split.
@@ -355,7 +415,10 @@ Next Obligation.
   intros f g H A B. now apply setoid.imens_obligation_2.
 Defined.
 
-Program Definition preimsubg {X Y : GroupS} :=
+Notation "f <@> G" := (@imsubg _ _ f G)
+  (at level 24, right associativity) : group_scope.
+
+Program Definition preimsubg {X Y : Group} :=
   dmap (f : Morph X Y) (H : {subg Y}) => <(f -@: H)>.
 Next Obligation.
   split; simpl.
@@ -367,17 +430,20 @@ Next Obligation.
   intros f g H A B. now apply setoid.preimens_obligation_2.
 Defined.
 
-Program Definition preimnsg {X Y : GroupS} :=
+Notation "f <-@> G" := (@preimsubg _ _ f G)
+  (at level 24, right associativity) : group_scope.
+
+Program Definition preimnsg {X Y : Group} :=
   dmap (f : Morph X Y) (N : <| Y) => (preimsubg f N) <<| X.
 Next Obligation.
   split. simpl. intros g [h [[a Ha] Hh]]. simpl in *.
-  rewrite Hh, !morph, morphV. now apply mulgN.
+  rewrite Hh, !morph, morphV. now apply normalJF.
 Defined.
 Next Obligation.
   intros f g H A B. now apply preimsubg_obligation_2.
 Defined.
 
-Program Definition idnsg {X : GroupS} := <[ == 1]> <<| X.
+Program Definition idnsg {X : Group} := <[ == 1]> <<| X.
 Next Obligation.
   split; simpl; try reflexivity. intros [a Ha] [b Hb].
   simpl in *. now rewrite Ha, Hb, identl, invg1.
@@ -389,53 +455,80 @@ Defined.
 
 Notation "<1>" := (idnsg) : group_scope.
 
-Program Definition kernel {X Y : GroupS} :=
+Program Definition kernel {X Y : Group} :=
   map (f : Morph X Y) => preimnsg f <1>.
 Next Obligation. intros f f0 Ef. now rewrite Ef. Defined.
 
 Definition coset_eq `{G : {subg X}} (x y : X) :=
   G (x * !y).
+#[global] Hint Unfold coset_eq : eq.
 Program Definition Coset `(G : {subg X}) :=
-  [ X | ==: (@coset_eq _ G) ].
+  [ X | ==: @coset_eq _ G ].
 Next Obligation.
-  split; unfold coset_eq.
+  split; simpeq.
   - intros x. rewrite invr. apply idgF.
-  - intros x y H. pose (invgF $[_, H]) as H0.
-    simpl in H0. now rewrite invMg, invgK in H0.
+  - intros x y H. rewrite <-(invgK y), <-invMg.
+    apply (invgF $[_, H]).
   - intros x y z H1 H2.
-    pose (mulgF $[_, H1] $[_, H2]) as H.
-    simpl in H.
-    now rewrite assoc, <-(assoc x), mulVg, mulg1 in H.
+    rewrite <-(mulg1 x), <-(mulVg y), assoc, <-assoc.
+    apply (mulgF $[_, H1] $[_, H2]).
 Defined.
 Notation "X / G" := (@Coset X G) : group_scope.
+
+Program Definition projmap `{G : {subg X}} : Map X (X / G)
+  := map x => x.
+Next Obligation.
+  intros x x0 E. simpeq. rewrite E, mulgV. apply idgF.
+Defined.
 
 Program Definition CosetGroup `(N : <| X) :=
   [ X / N | *: (dmap xN yN => xN * yN),
             !: (map xN => !xN),
             1: 1 ].
 Next Obligation.
-  intros x x0 Ex y y0 Ey. simpl in *. unfold coset_eq in *.
+  intros x x0 Ex y y0 Ey. simpeq_all.
   rewrite invMg, assoc, <-(assoc x), <-(assoc).
   rewrite <-(mulg1 x), <-(mulVg x0), (assoc x), <-(assoc _ x0).
-  sapply (mulgF $[_, Ex]). pose (mulgN(g := !x0) Ey).
-  simpl in m0. now rewrite invgK in m0.
+  sigapply (mulgF $[_, Ex]). rewrite <-(invgK x0) at 1.
+  now apply normalJF.
 Defined.
 Next Obligation.
-  intros x x0 E. simpl in *. unfold coset_eq in *.
-  rewrite invgK. pose (invgF $[_, E]). simpl in m.
-  rewrite (invMg), invgK in m.
-  pose (mulgN(g := x0) m). simpl in m0.
-  now rewrite !assoc, mulVg, mul1g in m0.
+  intros x x0 E. simpeq_all. rewrite invgK.
+  apply (normalVJF (!x0)). simpl.
+  rewrite <-assoc, mulgV, mulg1, <-invMg.
+  sapply (invgF $[_, E]).
 Defined.
 Next Obligation.
-  split; split; simpl; unfold coset_eq.
-  - intros x y z. rewrite assoc, mulgV. apply idgF.
-  - intros x. rewrite mulg1, mulgV. apply idgF.
-  - intros x. rewrite mulgV, mul1g, invg1. apply idgF.
+  split; split; simpeq; intros.
+  - rewrite assoc, mulgV. apply idgF.
+  - rewrite mulg1, mulgV. apply idgF.
+  - rewrite mulgV, mul1g, invg1. apply idgF.
 Defined.
 
 Notation "X </> N" := (@CosetGroup X N)
   (at level 35, right associativity) : group_scope.
+
+Program Definition projhom `{N : <| G} : G ~~> G </> N
+  := hom on projmap.
+
+Program Definition Iso1 `(f : G ~~> H) 
+  : (G </> kernel f) <~> (f <@> subgTfor G)
+  := iso x => $[f x, _].
+Next Obligation. now existsS x. Defined.
+Next Obligation.
+  intros x x0 E. simpeq_all.
+  now rewrite <-(invgK (f x0)), <-(mul1g (!! f x0)), mulgT,
+  <-morphV, <-morph.
+Defined.
+Next Obligation.
+  split. intros x y. simpeq. apply morph.
+Defined.
+Next Obligation.
+  split; split.
+  - intros x y E. simpeq_all. 
+    now rewrite morph, morphV, <-mulgT, mul1g, invgK.
+  - intros [y [[x T] Hx]]. exists x. now simpeq_all.
+Defined.
 
 Close Scope group_scope.
 Close Scope setoid_scope.
