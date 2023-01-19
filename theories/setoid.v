@@ -1,5 +1,6 @@
 Generalizable All Variables.
 Set Implicit Arguments.
+Unset Strict Implicit.
 
 Require Export Coq.Program.Basics Coq.Program.Tactics
   Coq.Setoids.Setoid Coq.Classes.Morphisms.
@@ -22,18 +23,16 @@ Structure Setoid : Type := {
 
 Notation "[  A  |  ==:  P  ]" := (@Build_Setoid A P _)
   (at level 0, A, P at level 99) : setoid_scope.
-Notation "[  ==:  P  ]" := [_ | ==: P]
-  (at level 0, P at level 99) : setoid_scope.
-Notation "( == 'in' A )" := (equal A)
+Notation "( == 'in' A )" := (@equal A)
   (at level 0, format "( == 'in' A )") : setoid_scope.
 Notation "(==)" := (== in _) : setoid_scope.
-Notation "x == y 'in' A" := (equal A x y)
+Notation "x == y 'in' A" := (@equal A x y)
   (at level 70, y at next level, no associativity)
   : setoid_scope.
 Notation "x == y" := (x == y in _)
   (at level 70, no associativity) : setoid_scope.
 
-Canonical Structure PropSetoid := [ ==: iff ].
+Canonical Structure PropSetoid := [ _ | ==: iff ].
 Notation "'[Prop]'" := PropSetoid : setoid_scope.
 
 Lemma sym {X : Setoid} {x y : X} : (x == y) == (y == x).
@@ -57,7 +56,7 @@ Program Canonical Structure MapSetoid (X Y : Setoid)
   := [ Map X Y | ==: map_eq ].
 Next Obligation.
   split; intros f.
-  - now apply mapprf.
+  - apply mapprf.
   - intros g H a b E. symmetry. now apply H.
   - intros g h H H0 a b E. rewrite (H _ _ E). now apply H0.
 Defined.
@@ -85,11 +84,11 @@ Definition dymap_eq {X Y Z} (f g : Dymap X Y Z) :=
 Program Canonical Structure DymapSetoid {X Y Z : Setoid} :=
   [ Dymap X Y Z | ==: dymap_eq ].
 Next Obligation.
-  split.
-  - intros f. apply dmapprf.
-  - intros f g E x1 x2 Ex y1 y2 Ey. symmetry. now apply E.
-  - intros f g h E1 E2 x1 x2 Ex y1 y2 Ey.
-    rewrite (E1 _ _ Ex _ _ Ey). now apply E2.
+  split; intros f.
+  - apply dmapprf.
+  - intros g E x x0 Ex y y0 Ey. symmetry. now apply E.
+  - intros g h E E0 x x0 Ex y y0 Ey.
+    rewrite (E _ _ Ex _ _ Ey). now apply E0.
 Defined.
 
 Definition mcurry `(f : Dymap X Y Z) (x : X) := map by (f x).
@@ -124,9 +123,8 @@ Notation "[  x  :  X  |  P  ]" :=
   (at level 0, x at level 99) : setoid_scope.
 Notation "[  x  |  P  ]" := [ x : _ | P ]
   (at level 0, x at level 99) : setoid_scope.
-Notation "[ | P  ]" := (@Build_Ensemble _ P)
-  (at level 0, P at level 99, only parsing)
-  : setoid_scope.
+Notation "'ens' 'by' P" := (@Build_Ensemble _ P)
+  (at level 200, no associativity) : setoid_scope.
 Notation "[  x 'in' A | P  ]" := [ x | A x /\ P ]
   (at level 0, x at level 99) : setoid_scope.
 Notation "{ 'ens' X }" := (@Ensemble X)
@@ -167,7 +165,7 @@ Program Canonical Structure sigSSetoid `(P : {pred X}) :=
 Notation "{ | P }" := (sigSSetoid P)
   (at level 0, no associativity, format "{  |  P }")
   : setoid_scope.
-Program Canonical Structure inclS `{P : {pred X}} 
+Program Canonical Structure inclS `{P : {pred X}}
   : Map { | P} X := map x => $x.
 
 Lemma sigS_exists `{P : {pred X}} {Q : { |P} -> Prop}
@@ -198,7 +196,7 @@ Lemma val_sval `{P : {pred X}} {x : X} (H : P x)
   :  x == $$[x, H].
 Proof. reflexivity. Qed.
 
-Coercion ens_setoid `(A : {ens X}) := { |ensconf A}.
+Coercion ens_setoid `(A : {ens X}) := { | ensconf A}.
 
 Program Definition subens {X} :=
   dmap (A : {ens X}) (B : {ens X}) => forall x : A, B x.
@@ -209,11 +207,11 @@ Next Obligation.
 Defined.
 Notation "A '<=' B" := (@subens _ A B) : setoid_scope.
 
-Lemma subens_trans {X} : Transitive (@subens X).
+#[global]
+Instance subens_trans {X} : Transitive (@subens X).
 Proof.
   intros A B C LAB LBC x. apply (LBC $[_, LAB x]).
 Qed.
-#[global] Existing Instance subens_trans.
 
 Program Definition inclmap {X} {A B : {ens X}} (H : A <= B)
   : Map A B := map x => $[$x].
@@ -383,9 +381,9 @@ Lemma mapcomp_assoc {X Y Z W} {f : Map Z W} {g : Map Y Z}
   {h : Map X Y} : (f o g) o h == f o g o h.
 Proof. intros x y Heq. now rewrite Heq. Qed.
 
-Lemma sval_inj `{P : {pred X}} : Injective (@sval _ P).
+#[global]
+Instance sval_inj `{P : {pred X}} : Injective (@sval _ P).
 Proof. split; intuition. Qed.
-#[global] Existing Instance sval_inj.
 
 Definition pair_eq {A B : Setoid} (ab1 ab2 : A * B) :=
   fst ab1 == fst ab2 /\ snd ab1 == snd ab2.

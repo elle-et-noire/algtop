@@ -1,5 +1,6 @@
 Generalizable All Variables.
 Set Implicit Arguments.
+Unset Strict Implicit.
 Require Export setoid.
 
 Declare Scope monoid_scope.
@@ -28,18 +29,19 @@ Class Identical {X : Setoid} (op : X -> X -> X) e := {
 }.
 #[global] Existing Instances id_identl id_identr.
 
-Class IsMonoidS `(mul : Binop supp) e :=
+Class IsMonoid `(mul : Binop supp) e :=
 {
   assocm :> Associative mul;
   identm :> Identical mul e;
 }.
+#[global] Existing Instances assocm identm.
 
-Structure MonoidS := {
+Structure Monoid := {
   mcarrier :> Setoid;
   mulm : Binop mcarrier;
   idm : mcarrier;
 
-  monoidsprf : IsMonoidS mulm idm
+  monoidsprf : IsMonoid mulm idm
 }.
 #[global] Existing Instance monoidsprf.
 
@@ -47,7 +49,7 @@ Arguments mulm {_}.
 Arguments idm {_}.
 
 Notation "[ A | *: op , 1: id ]" :=
-  (@Build_MonoidS A op id _)
+  (@Build_Monoid A op id _)
   (at level 0, A, op, id at level 99) : monoid_scope.
 Notation "[ *: op , 1: id ]" := [ _ | *: op, 1: id]
   (at level 0, op, id at level 99) : monoid_scope.
@@ -62,7 +64,7 @@ Notation "1 'in' M" := (@idm M)
 Notation "1" := (1 in _) : monoid_scope.
 
 Section MonoidTheory.
-  Context {M : MonoidS}.
+  Context {M : Monoid}.
   Implicit Types x y g : M.
 
   Lemma mulmA : forall {x y z}, x * (y * z) == (x * y) * z.
@@ -82,7 +84,7 @@ Ltac existsS T :=
   | |- exists _ : ?P, _ => assert P as H
   end; [intuition |exists H].
 
-Program Canonical Structure ensmulM {M : MonoidS} :=
+Program Canonical Structure ensmulM {M : Monoid} :=
   [ {ens M} | *: imens2 ( * in M ), 1: [ == 1] ].
 Next Obligation.
   split; split.

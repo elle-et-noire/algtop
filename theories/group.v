@@ -1,8 +1,10 @@
 Generalizable All Variables.
 Set Implicit Arguments.
+Unset Strict Implicit.
 Require Export setoid monoid.
 
 Declare Scope group_scope.
+Delimit Scope group_scope with grp.
 Open Scope setoid_scope.
 Open Scope monoid_scope.
 Open Scope group_scope.
@@ -27,6 +29,7 @@ Class IsGroup `(mul : Binop supp) (inv : Ope supp) e :=
   identrg :> RIdentical mul e;
   invrg :> RInvertible mul e inv
 }.
+#[global] Existing Instances assocg identrg invrg.
 
 Structure Group := {
   gcarrier :> Setoid;
@@ -42,14 +45,14 @@ Arguments mulg {_}.
 Arguments invg {_}.
 Arguments idg {_}.
 
-Lemma identlg {G} : LIdentical (@mulg G) idg.
+#[global]
+Instance identlg {G} : LIdentical (@mulg G) idg.
 Proof.
   split. intros x. rewrite <-identr.
   rewrite <-(invr (invg x)) at 2.
   now rewrite assoc, <-(assoc idg), invr, identr,
     <-(invr x), <-assoc, invr, identr.
 Qed.
-#[global] Existing Instance identlg.
 
 Program Coercion grps_mnds (G : Group) :=
   [ gcarrier G | *: mulg, 1: idg ].
@@ -64,9 +67,6 @@ Program Definition ensg_ensm {X : Group} (G : {ens X})
 Notation "[ A | *: op , !: inv , 1: id ]" :=
   (@Build_Group A op inv id _)
   (at level 0, A, op, inv, id at level 99) : group_scope.
-Notation "[ *: op , !: inv , 1: id ]"
-  := [ _ | *: op, !: inv, 1: id]
-  (at level 0, op, inv, id at level 99) : group_scope.
 Notation "(  * 'in' G  )" := (@mulg G) : group_scope.
 Notation "( * )" := ( * in _ ) : group_scope.
 Notation "g * h 'in' G" := (@mulg G g h)
@@ -92,12 +92,12 @@ Next Obligation.
 Defined. 
 Notation "g ^ h" := (@conjg _ g h) : group_scope.
 
-Lemma invlg {G} : LInvertible ( * in G ) 1 ( ! ).
+#[global]
+Instance invlg {G} : LInvertible ( * in G ) 1 ( ! ).
 Proof.
   split. intros x. rewrite <-identr. rewrite <-(invr (!x)) at 1.
   now rewrite assoc, <-(assoc _ x), invr, identr, invr.
 Qed.
-#[global] Existing Instance invlg.
 
 Section GroupTheory.
   Context {G : Group}.
@@ -187,9 +187,9 @@ Structure Morph (G H : Group) := {
 #[global] Existing Instance homprf.
 
 Notation "'hom' 'on' f" := (@Build_Morph _ _ f _)
-  (at level 200, no associativity).
+  (at level 200, no associativity) : group_scope.
 Notation "'hom' 'by' f " := (hom on (map by f))
-  (at level 200, no associativity).
+  (at level 200, no associativity) : group_scope.
 Notation " 'hom' x => m " := (hom by fun x => m)
   (at level 200, x binder, no associativity) : group_scope.
 Notation "G ~~> H" := (@Morph G H)
@@ -215,14 +215,14 @@ Notation "'iso' x => m " := (iso on hom x => m)
 Notation "G <~> H" := (@Isomorph G H)
   (at level 95, no associativity) : group_scope.
 
-Program Definition homcomp {G1 G2 G3} (f: G1 ~~> G2) (g: G2 ~~> G3)
-  : G1 ~~> G3 := hom on (g o f).
+Program Definition homcomp {G1 G2 G3} (f : G1 ~~> G2)
+  (g : G2 ~~> G3) : G1 ~~> G3 := hom on (g o f).
 Next Obligation. split. intros x y. simpl. now rewrite 2!morph. Defined.
 Notation "g '<o~' f" := (homcomp f g)
   (at level 60, right associativity) : group_scope.
 
-Program Definition isocomp {G1 G2 G3} (f: G1 <~> G2) (g: G2 <~> G3)
-  : G1 <~> G3 := iso on (g <o~ f).
+Program Definition isocomp {G1 G2 G3} (f : G1 <~> G2)
+  (g : G2 <~> G3) : G1 <~> G3 := iso on (g <o~ f).
 Next Obligation.
   split; split; simpl.
   - intros x y Heq. now repeat apply inj in Heq.
@@ -509,7 +509,7 @@ Next Obligation.
 Defined.
 Next Obligation.
   intros x x0 E. simpeq_all. rewrite invgK.
-  apply (normalVJF (!x0)). simpl.
+  apply (normalVJF(g:=!x0)). simpl.
   rewrite <-assoc, mulgV, mulg1, <-invMg.
   sapply (invgF $[_, E]).
 Defined.
@@ -526,11 +526,11 @@ Notation "X </> N" := (@CosetGroup X N)
 Program Definition projhom `{N : <| G} : G ~~> G </> N
   := hom on projmap.
 
-Lemma projhom_surj `{N : <| G} : Surjective (@projhom _ N).
+#[global]
+Instance projhom_surj `{N : <| G} : Surjective (@projhom _ N).
 Proof.
   split. intros y. exists y. simpeq. rewrite mulgV. apply idgF.
 Qed.
-#[global] Existing Instance projhom_surj.
 
 Lemma projhom_ker `{N : <| G} (g : G)
   : N g == (@projhom _ N g == 1).
@@ -634,6 +634,11 @@ Proof.
   rewrite (gensubg_eq_subg(A := N));
   [now apply gen_compat_lt | intuition].
 Qed. 
+
+Require Import Sorted.
+Check HdRel.
+
+(* Definition solvable (G : Group)  *)
 
 Close Scope group_scope.
 Close Scope setoid_scope.
