@@ -79,7 +79,7 @@ Notation "1" := (1 in _) : group_scope.
 Notation "(  ! 'in' G  ) " := (@invg G) : group_scope.
 Notation "( ! )" := ( ! in _ ) : group_scope.
 Notation "! g 'in' G" := (@invg G g)
-  (at level 35, g at next level, right associativity,
+  (at level 35, g at level 35, right associativity,
   format "! g  'in'  G") : group_scope.
 Notation "! g" := ( ! g in _ )
   (at level 35, right associativity,
