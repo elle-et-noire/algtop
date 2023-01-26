@@ -11,6 +11,14 @@ Ltac rewrite2_in E H := (rewrite E in H) || (rewrite <-E in H).
 Ltac simpeq := simpl; autounfold with eq; simpl.
 Ltac simpeq_all := simpl in *; autounfold with eq in *; simpl in *.
 
+Ltac sapply H :=
+  let m := fresh "m" in
+  pose H as m; simpl in m; apply m.
+
+Ltac srewrite H :=
+  let m := fresh "m" in
+  pose H as m; simpl in m; rewrite m.
+
 Declare Scope setoid_scope.
 Open Scope setoid_scope.
 
@@ -187,10 +195,6 @@ Ltac sigapply H :=
   let m := fresh "m" in
   pose (forall_sigS H) as m; simpl in m;
   apply m; simpl.
-
-Ltac sapply H :=
-  let m := fresh "m" in
-  pose H as m; simpl in m; apply m.
 
 Lemma val_sval `{P : {pred X}} {x : X} (H : P x)
   :  x == $$[x, H].

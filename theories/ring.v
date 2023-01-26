@@ -99,7 +99,7 @@ Notation "0" := (0 in _) : ring_scope.
 Notation "(  - 'in' A  ) " := (@oppcr A) : ring_scope.
 Notation "( - )" := ( - in _ ) : ring_scope.
 Notation "- a 'in' A" := (@oppcr A a)
-  (at level 35, a at next level, right associativity,
+  (at level 35, a at level 35, right associativity,
   format "- a  'in'  A") : ring_scope.
 Notation "- a" := ( - a in _ )
   (at level 35, right associativity,
@@ -203,24 +203,15 @@ Section RingTheory.
 
   Lemma unit1 : $$[1 in A] == 1.
   Proof. now simpl. Qed.
-End RingTheory.
-(* 
-Section HomTheory.
-  Context `{f: A ~~> B}.
-  Lemma morph1 : f 1 == 1.
-  Proof.
-    rewrite <-mulcrI
-    rewrite <-unit1.
-    rewrite <-(identr 1), morph_mul.
-    now rewrite (mulgI (f 1)), <-morph, 2!mul1g.
-  Qed.
 
-  Lemma morphV : forall x, f (!x) == !(f x).
-  Proof.
-    intros x. now rewrite <-(mulg1 (!f x)), mulTg,
-     <-morph, invr, morph1.
-  Qed.
-End HomTheory. *)
+  Definition addG := Build_Group (add_grp(IsRing:=cring_ring(IsCRing:=cringprf A))).
+  Lemma oppcr0 : -(0 in A) == 0.
+  Proof. apply (@invg1 addG). Qed.
+
+  Lemma addcr0 x : x + 0 == x.
+  Proof. apply (@mulg1 addG). Qed. 
+End RingTheory.
+
 
 Program Definition rhom_mghom `(f : A ~~> B) : (A^<*> ~~> B^<*>)%grp
   := (hom x => $[f x, _])%grp.
@@ -235,58 +226,38 @@ Next Obligation.
   split. intros x x0. simpeq. now rewrite morph_mul.
 Defined.
 
+Class IsIdeal {A : CRing} (I : {ens A}) := {
+  ferm_add : forall x y : I, I (x + -y);
+  ferm_0 : I 0;
+  ferm_mul : forall (a : A) (x : I), I (a * x)
+}.
 
+Structure Ideal (A : CRing) := {
+  suppi :> {ens A};
+  idlprf :> IsIdeal suppi
+}.
+#[global] Existing Instance idlprf.
 
-Declare Scope field_scope.
-Open Scope field_scope.
+Notation "(< I >)" := (@Build_Ideal _ I _)
+  (at level 200, I at level 0, no associativity) : ring_scope.
+Notation "{ 'idl' X }" := (@Ideal X)
+  (at level 0, format "{ 'idl'  X }") : ring_scope.
 
-Inductive FieldBase {U : Setoid} :=
-| funit :> U -> FieldBase
-| f0 : FieldBase.
-Notation "{ 'fldb' U }" := (@FieldBase U)
-  (at level 0, format "{ 'fldb'  U }") : field_scope.
-
-Definition fieldb_eq {U} (a b : {fldb U}) :=
-  match a, b with
-  | funit a', funit b' => a' == b'
-  | f0, f0 => True
-  | _, _ => False
-  end.
-Program Canonical Structure FieldBaseSetoid
-  {U : Setoid} := [ {fldb U} | ==: fieldb_eq ].
+Program Definition nullIdeal {A : CRing} := (<[ == 0]>).
 Next Obligation.
   split.
-  - intros a. case a; now simpl.
-  - intros a b E. case a, b; now simpl.
-  - intros a b c E E0. case a, b, c; simpl in *; intuition.
-    now rewrite E.
-Defined.
-Notation "[ 'fldb' U ]" := (@FieldBaseSetoid U)
-  (at level 0, format "[ 'fldb'  U ]") : field_scope.
-Program Canonical Structure funitM {U} : Map U [fldb U]
-  := map x => funit x.
+  - intros [x H] [y H1]. simpl in *.
+    now rewrite H, H1, oppcr0, addcr0.
+  - now simpl.
+  - intros a [x H]. simpl in *. rewrite H.
 
-Program Definition inclmul {U} (mul : Binop U) : Binop [fldb U]
-  := dmap a b => match a, b with
-      | funit a', funit b' => (funitM o< mul) a' b'
-      | _, _ => f0
-      end.
-Next Obligation.
-  intros a a0 E b b0 E0. case a, a0, b, b0; intuition.
-  simpl in *. now rewrite E, E0.
-Defined.
-
-(* Class IsField `(mul : Binop U) (inv : Ope U) (f1 : U)
-  (add : Binop [fldb U]) (opp : Ope [fldb U]) := {
-  fld_cring :> IsCRing add opp f0 (inclmul mul) f1;
-  fldU_grp :> IsGroup mul inv f1
+Class IsField (A : CRing) := {
+  fld : forall a : A, a == 0 \/ A^* a
 }.
-#[global] Existing Instances fld_cring fldU_grp. *)
 
 Structure Field := {
   fcar :> CRing;
-
-  fldprf : forall a : fcar, a == 0 \/ fcar^* a
+  fldprf : IsField fcar
 }.
 
 
