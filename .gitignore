@@ -7,3 +7,4 @@ NCOC_*
 *.vos
 *.glob
 !.gitignore
+cattest.v

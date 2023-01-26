@@ -1,6 +1,12 @@
 Generalizable All Variables.
 Set Implicit Arguments.
 Unset Strict Implicit.
+
+Unset Printing Implicit Defensive.
+Set Reversible Pattern Implicit.
+Set Primitive Projections.
+Set Universe Polymorphism.
+
 Require Export setoid.
 
 Declare Scope cat_scope.
@@ -27,29 +33,34 @@ Structure Category := {
 }.
 #[global] Existing Instance catprf.
 
-Notation "[ O | '->:' hom , 'o:' comp , '1:' id ]"
+Notation "[ O | '~>:' hom , 'o:' comp , '1:' id ]"
   := (@Build_Category O hom comp id _)
   (at level 0, O, hom, comp, id at level 99) : cat_scope.
+Notation "A ~[ X ]> B" := (@cathom X A B)
+  (at level 99, right associativity) : cat_scope.
+Notation "A ~> B" := (A ~[_]> B)
+  (at level 99, right associativity) : cat_scope.
 Notation "g 'o' f" := (@catcomp _ _ _ _ f g)
   (at level 60, right associativity) : cat_scope.
 Notation "1_ A" := (@catid _ A)
   (at level 0, A at level 99, no associativity,
   format "1_ A") : cat_scope.
 
-Class IsInverse (C : Category) (A B : C) (f : C A B) (g : C B A) := {
+Class IsInverse (C : Category) (A B : C) (f : A ~> B)
+   (g : B ~> A) := {
   invcomp1 : g o f == 1_A;
   invcomp2 : f o g == 1_B
 }.
 
 Structure Isomorph (C : Category) (A B : C) := {
-  orthohom : C A B;
-  invhom : C B A;
+  orthohom : A ~> B;
+  invhom : B ~> A;
   isoprf :> IsInverse orthohom invhom
 }.
 #[global] Existing Instance isoprf.
 
 Program Definition OppCat (X : Category) :=
-  [ _ | ->: fun A B => X B A,
+  [ _ | ~>: fun A B => X B A,
         o: fun A B C => dmap f g => f o g,
         1: fun A => 1_A ].
 Next Obligation.
@@ -71,7 +82,7 @@ Next Obligation.
 Defined.
 
 Program Definition TypeCat :=
-  [ _ | ->: funcSetoid,
+  [ _ | ~>: funcSetoid,
         o: fun A B C => dmap f g => fun x => g (f x),
         1: fun X x => x ].
 Next Obligation.
@@ -82,16 +93,16 @@ Next Obligation.
 Defined.
 
 Class IsFunctor (X Y : Category) (fobj : X -> Y)
-  (fhom : forall {A B}, X A B -> Y (fobj A) (fobj B)) :=
+  (fhom : forall {A B}, (A ~> B) -> (fobj A ~> fobj B)) :=
 {
-  fhomcomp : forall {A B C} (f : X A B) (g : X B C),
+  fhomcomp : forall {A B C} (f : A ~> B) (g : B ~> C),
     fhom (g o f) == fhom g o fhom f;
   fhom1 : forall {A}, fhom (1_A) == 1_(fobj A)
 }.
 
 Structure Functor (X Y : Category) := {
   funobj :> X -> Y;
-  funhom : forall A B, Map (X A B) (Y (funobj A) (funobj B));
+  funhom : forall A B, Map (A ~> B) (funobj A ~> funobj B);
   funprf :> IsFunctor funhom
 }.
 #[global] Existing Instance funprf.
@@ -108,7 +119,43 @@ Notation "[ 'obj' A => FA | 'hom' { B , C } f => Ff ]" :=
   (at level 0, A, FA, B, C, f, Ff at level 99, no associativity)
   : cat_scope.
 
+Inductive hom_eq (X : Category) (A B : X) (f : A ~> B)
+  : forall (C D : X), (C ~> D) -> Prop :=
+  hom_eqref : forall (g : A ~> B), f == g -> hom_eq f g.
+Notation "f =H g 'in' X" := (@hom_eq X _ _ f _ _ g)
+  (at level 70, g at next level) : cat_scope.
+Notation "f =H g" := (f =H g in _)
+  (at level 70) : cat_scope.
+
 Program Definition CatCat :=
-  [ _ | ->: fun X Y => [ X --> Y | ==: ,
-               o: fun X Y Z => dmap F G => fun A => G (F A),
+  [ Category | ~>: fun X Y =>
+     [ X --> Y | ==: fun F G => forall A B (f : A ~> B), F :o f =H G :o f],
+               o: fun X Y Z => dmap F G =>
+     [ obj A => G (F A) | hom {_, _} f => G :o F :o f ],
                1: fun X => [ obj A => A | hom {_, _} f => f ] ].
+Next Obligation.
+  split.
+  - now intros F A B f.
+  - intros F G H A B f. destruct (H A B f). now apply hom_eqref.
+  - intros F G H E E0 A B f. destruct (E0 A B f). destruct (E A B f).
+    apply hom_eqref. now rewrite <-H0.
+Defined.
+Next Obligation.
+  intros f g E. now rewrite E.
+Defined.
+Next Obligation.
+  destruct F as [Ff Fhom [Fcomp Fid]].
+  destruct G as [Gf Ghom [Gcomp Gid]].
+  split; simpl in *; intuition.
+  - now rewrite Fcomp, Gcomp.
+  - now rewrite Fid, Gid.
+Defined.
+Next Obligation.
+  intros F F0 E G G0 E0 A B f. simpl in *.
+  destruct (E A B f). destruct (E0 (F A) (F B) g).
+  apply hom_eqref. now rewrite H.
+Defined.
+Next Obligation.
+  split; simpl in *; intuition; now apply hom_eqref.
+Defined. 
+            
