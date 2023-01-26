@@ -1,7 +1,6 @@
 Generalizable All Variables.
 Set Implicit Arguments.
 Unset Strict Implicit.
-
 Unset Printing Implicit Defensive.
 Set Reversible Pattern Implicit.
 Set Primitive Projections.
@@ -13,38 +12,102 @@ Declare Scope cat_scope.
 Open Scope setoid_scope.
 Open Scope cat_scope.
 
-Class IsCategory (obj : Type) (hom : obj -> obj -> Setoid)
-  (comp : forall {A B C}, hom A B -> hom B C -> hom A C)
-  (id : forall A, hom A A) :=
+Check transitive.
+Check transitivity.
+
+Lemma trans {X : Setoid} {a b c : X} : a == b -> b == c -> a == c.
+Proof. intros H H0. now rewrite H. Defined.
+Lemma mapimeq {X Y : Setoid} {m m0 : Map X Y} {a a0 b b0}
+  : m a == m0 b -> a == a0 -> b == b0 -> m a0 == m0 b0.
+Proof.
+  intros E E0 E1. now rewrite <-E0, <-E1.
+Defined.
+
+Class IsCategory (obj hom : Setoid) (dom codom : Map hom obj)
+  (comp : forall {f g}, codom f == dom g -> hom) (id : obj -> hom) :=
 {
-  compcA : forall A B C D (f : hom A B) (g : hom B C) (h : hom C D),
-    comp f (comp g h) == comp (comp f g) h;
-  compc1 : forall A B (f : hom A B), comp (id A) f == f;
-  comp1c : forall A B (f : hom A B), comp f (id B) == f;
+  comp_dom : forall f g (H : codom f == dom g), dom (comp H) == dom f;
+  comp_cod : forall f g (H : codom f == dom g), codom (comp H) == codom g;
+  comp_map : forall f f0 g g0 (E : f == f0) (E0 : g == g0) (H : codom f == dom g),
+    comp H == comp (mapimeq H E E0);
+  compcA : forall f g h (H : codom f == dom g) (H0 : codom g == dom h),
+    @comp f (comp H0) (trans H ((proj1 sym)(comp_dom H0)))
+    == @comp (comp H) h (trans (comp_cod H) H0);
+  id_dom : forall A, dom (id A) == A;
+  id_cod : forall A, codom (id A) == A;
+  compc1 : forall f, comp (id_cod (dom f)) == f;
+  comp1c : forall f, comp ((proj1 sym) (id_dom (codom f))) == f;
 }.
 
 Structure Category := {
-  catobj :> Type;
-  cathom :> catobj -> catobj -> Setoid;
-  catcomp : forall A B C, Dymap (cathom A B) (cathom B C) (cathom A C);
-  catid : forall A, cathom A A;
+  catobj :> Setoid;
+  cathom : Setoid;
+  dom : Map cathom catobj;
+  cod : Map cathom catobj;
+  catcomp : forall f g, cod f == dom g -> cathom;
+  catid : Map catobj cathom;
 
   catprf :> IsCategory catcomp catid
 }.
 #[global] Existing Instance catprf.
 
-Notation "[ O | '~>:' hom , 'o:' comp , '1:' id ]"
-  := (@Build_Category O hom comp id _)
-  (at level 0, O, hom, comp, id at level 99) : cat_scope.
-Notation "A ~[ X ]> B" := (@cathom X A B)
-  (at level 99, right associativity) : cat_scope.
-Notation "A ~> B" := (A ~[_]> B)
-  (at level 99, right associativity) : cat_scope.
-Notation "g 'o' f" := (@catcomp _ _ _ _ f g)
-  (at level 60, right associativity) : cat_scope.
+Arguments dom {_}.
+Arguments cod {_}.
+
+Notation "[ 'o:' comp , '1:' id ]"
+  := (@Build_Category _ _ _ _ comp id _)
+  (at level 0, comp, id at level 99) : cat_scope.
 Notation "1_ A" := (@catid _ A)
   (at level 0, A at level 99, no associativity,
   format "1_ A") : cat_scope.
+
+Program Definition homDC {X : Category} (A B : X)
+  := [ f | dom f == A /\ cod f == B ].
+Next Obligation.
+  intros f f0 E; split; intros [H H0]; split; now rewrite2 E.
+Defined.
+Notation "A ~[ X ]> B" := (@homDC X A B)
+  (at level 99, right associativity) : cat_scope.
+Notation "A ~> B" := (A ~[_]> B)
+  (at level 99, right associativity) : cat_scope.
+
+Obligation Tactic := (try now intros x); intros; (try apply \ISE).
+
+Program Definition catcompDC {X : Category} {A B C : X}
+  : Dymap (A ~> B) (B ~> C) (A ~> C)
+  := dmap f g => $[@catcomp _ ($f) ($g) _, _].
+Next Obligation.
+  destruct f as [f [Df Cf]]. destruct g as [g [Dg Cg]].
+  simpl in *. now rewrite Dg.
+Defined.
+Next Obligation.
+  destruct f as [f [Df Cf]]. destruct g as [g [Dg Cg]].
+  split; simpl.
+  - now rewrite comp_dom.
+  - now rewrite comp_cod.
+Defined.
+Next Obligation.
+  intros [f [Df Cf]] [f0 [Df0 Cf0]] E [g [Dg Cg]] [g0 [Dg0 Cg0]] E0.
+  assert (cod f == dom g) by now rewrite Dg.
+  (* pose (comp_map E E0 H). *)
+  (* rewrite comp_map. *)
+  simpeq_all.
+  Check (trans_sym_co_inv_impl_morphism (Equivalence_PER (equal_equiv X)) 
+  (dom g) B Dg Cf).
+  Check (trans_sym_co_inv_impl_morphism (Equivalence_PER (equal_equiv X)) 
+  (dom g0) B Dg0 Cf0).
+
+  assert (catcomp (trans_sym_co_inv_impl_morphism (Equivalence_PER (equal_equiv X)) 
+  (dom g) B Dg Cf) == catcomp H).
+  
+  simpl in *. simpeq_all. 
+  pose (comp_map E E0 H). simpl.  unfold mapimeq in e.
+  simpl in e. mapimeq  rewrite E.
+
+
+
+Notation "g 'o' f" := (@catcomp _ _ _ _ f g)
+  (at level 60, right associativity) : cat_scope.
 
 Class IsInverse (C : Category) (A B : C) (f : A ~> B)
    (g : B ~> A) := {
@@ -127,7 +190,7 @@ Notation "f =H g 'in' X" := (@hom_eq X _ _ f _ _ g)
 Notation "f =H g" := (f =H g in _)
   (at level 70) : cat_scope.
 
-Program Definition CatCat :=
+Program Canonical Structure CatCat :=
   [ Category | ~>: fun X Y =>
      [ X --> Y | ==: fun F G => forall A B (f : A ~> B), F :o f =H G :o f],
                o: fun X Y Z => dmap F G =>
@@ -158,4 +221,7 @@ Defined.
 Next Obligation.
   split; simpl in *; intuition; now apply hom_eqref.
 Defined. 
-            
+
+Canonical Structure FunctorSetoid X Y := Eval simpl in (@cathom CatCat X Y).
+Notation "[ 'Fun' X Y ]" := (@FunctorSetoid X Y) : cat_scope.
+
