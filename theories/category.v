@@ -23,20 +23,27 @@ Proof.
   intros E E0 E1. now rewrite <-E0, <-E1.
 Defined.
 
-Class IsCategory (obj hom : Setoid) (dom codom : Map hom obj)
-  (comp : forall {f g}, codom f == dom g -> hom) (id : obj -> hom) :=
+Program Definition ligature {X Y : Setoid} (Cod Dom : Map X Y) :=
+  [ p | Cod (fst p) == Dom (snd p) ].
+Next Obligation.
+  intros [x y] [x0 y0] [E E0]. split; intros H; simpl in *;
+  now rewrite2 E; rewrite2 E0.
+Defined.
+
+Notation "p .1" := (fst p) (at level 5, left associativity, format "p .1").
+Notation "p .2" := (snd p) (at level 5, left associativity, format "p .2").
+
+Class IsCategory (obj hom : Setoid) (dom cod : Map hom obj)
+  (comp : Map (ligature cod dom) hom) (id : obj -> hom) :=
 {
-  comp_dom : forall f g (H : codom f == dom g), dom (comp H) == dom f;
-  comp_cod : forall f g (H : codom f == dom g), codom (comp H) == codom g;
-  comp_map : forall f f0 g g0 (E : f == f0) (E0 : g == g0) (H : codom f == dom g),
-    comp H == comp (mapimeq H E E0);
-  compcA : forall f g h (H : codom f == dom g) (H0 : codom g == dom h),
-    @comp f (comp H0) (trans H ((proj1 sym)(comp_dom H0)))
-    == @comp (comp H) h (trans (comp_cod H) H0);
+  comp_dom : forall p, dom (comp p) == dom ($p).1;
+  comp_cod : forall p, cod (comp p) == cod ($p).2;
+  compcA : forall p p0 (H : ($p).2 == ($p0).1) H0 H1,
+    comp $[(($p).1, comp p0), H0] == comp $[(comp p, ($p0).2), H1];
   id_dom : forall A, dom (id A) == A;
-  id_cod : forall A, codom (id A) == A;
-  compc1 : forall f, comp (id_cod (dom f)) == f;
-  comp1c : forall f, comp ((proj1 sym) (id_dom (codom f))) == f;
+  id_cod : forall A, cod (id A) == A;
+  compc1 : forall f H, comp $[(id (dom f), f), H] == f;
+  comp1c : forall f H, comp $[(f, (id (cod f))), H] == f;
 }.
 
 Structure Category := {
@@ -44,7 +51,7 @@ Structure Category := {
   cathom : Setoid;
   dom : Map cathom catobj;
   cod : Map cathom catobj;
-  catcomp : forall f g, cod f == dom g -> cathom;
+  catcomp : Map (ligature cod dom) cathom;
   catid : Map catobj cathom;
 
   catprf :> IsCategory catcomp catid
@@ -73,9 +80,13 @@ Notation "A ~> B" := (A ~[_]> B)
 
 Obligation Tactic := (try now intros x); intros; (try apply \ISE).
 
+Lemma map_equal {X Y : Setoid} (f : Map X Y) x x0
+  : x == x0 -> f x == f x0.
+Proof. intros H. now rewrite H. Defined.
+
 Program Definition catcompDC {X : Category} {A B C : X}
   : Dymap (A ~> B) (B ~> C) (A ~> C)
-  := dmap f g => $[@catcomp _ ($f) ($g) _, _].
+  := dmap f g => $[@catcomp _ $[($f, $g), _], _].
 Next Obligation.
   destruct f as [f [Df Cf]]. destruct g as [g [Dg Cg]].
   simpl in *. now rewrite Dg.
@@ -88,21 +99,9 @@ Next Obligation.
 Defined.
 Next Obligation.
   intros [f [Df Cf]] [f0 [Df0 Cf0]] E [g [Dg Cg]] [g0 [Dg0 Cg0]] E0.
-  assert (cod f == dom g) by now rewrite Dg.
-  (* pose (comp_map E E0 H). *)
-  (* rewrite comp_map. *)
-  simpeq_all.
-  Check (trans_sym_co_inv_impl_morphism (Equivalence_PER (equal_equiv X)) 
-  (dom g) B Dg Cf).
-  Check (trans_sym_co_inv_impl_morphism (Equivalence_PER (equal_equiv X)) 
-  (dom g0) B Dg0 Cf0).
+  simpeq_all. apply map_equal. split; now simpl.
+Defined.
 
-  assert (catcomp (trans_sym_co_inv_impl_morphism (Equivalence_PER (equal_equiv X)) 
-  (dom g) B Dg Cf) == catcomp H).
-  
-  simpl in *. simpeq_all. 
-  pose (comp_map E E0 H). simpl.  unfold mapimeq in e.
-  simpl in e. mapimeq  rewrite E.
 
 
 
