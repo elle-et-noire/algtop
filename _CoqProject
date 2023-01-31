@@ -1,7 +1,4 @@
 -R theories/ algtop
 
 theories/setoid.v
-theories/monoid.v
-theories/group.v
-theories/ring.v
-theories/topology.v
+theories/category.v
