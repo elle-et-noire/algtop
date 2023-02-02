@@ -32,6 +32,10 @@ Next Obligation.
   now (rewrite H4 || rewrite H5).
 Defined.
 
+Definition composables_S {X Y} {cod dom : Map X Y}
+  : @Composables _ _ cod dom -> @ComposablesSetoid _ _ cod dom := fun c => c.
+
+
 Class IsCategory `(comp : @Composables hom obj cod dom -> hom)
   (id : obj -> hom) :=
 {
@@ -138,7 +142,10 @@ Class IsFunctor (X Y : Category) (fobj : Map X Y)
   (fhom : Map (cathom X) (cathom Y)) :=
 {
   comm_dom : forall f, dom (fhom f) == fobj (dom f);
-  comm_cod : forall f, cod (fhom f) == fobj (cod f)
+  comm_cod : forall f, cod (fhom f) == fobj (cod f);
+  comm_comp : forall f g H H0,
+    fhom (g o[by H] f) == (fhom g) o[by H0] fhom f;
+  comm_id : forall A, fhom (1_A) == 1_(fobj A)
 }.
 
 Structure Functor (X Y : Category) := {
@@ -170,13 +177,13 @@ Defined.
 Notation "X [-->] Y" := (@FunctorSetoid X Y)
   (at level 55) : cat_scope.
 
-Definition rawSetoid X := [ X | ==: eq ].
-Notation "[ 'raw' X ]" := (@rawSetoid X)
-  (at level 0, format "[ 'raw'  X ]") : cat_scope.
+Definition eqSetoid X := [ X | ==: eq ].
+Notation "[ 'eqS' X ]" := (@eqSetoid X)
+  (at level 0, format "[ 'eqS'  X ]") : cat_scope.
 
 Structure Carto {X} (F : X -> X -> Setoid):= {
-  cdom : [raw X];
-  ccod : [raw X];
+  cdom : [eqS X];
+  ccod : [eqS X];
   cfun :> F cdom ccod
 }.
 
@@ -242,11 +249,19 @@ Program Definition Functor_comp `(F : X --> Y)  `(G : Y --> Z)
 Next Obligation. intros A A0 E. now rewrite E. Defined.
 Next Obligation. intros f f0 E. now rewrite E. Defined.
 Next Obligation.
-  destruct F as [Fobj Ffun [Fdom Fcod]].
-  destruct G as [Gobj Gfun [Gdom Gcod]].
-  split; simpl in *; intros f.
+  split.
+  1,2: destruct F as [Fobj Ffun [Fdom Fcod]];
+  destruct G as [Gobj Gfun [Gdom Gcod]];
+  simpl in *; intros f.
+  (* split; simpl in *; intros f. *)
   - now rewrite Gdom, Fdom.
   - now rewrite Gcod, Fcod.
+  - intros f g H H0. simpl in *. rewrite !comm_comp, map_equal.
+    intuition. eapply _. Unshelve.
+  + now rewrite comm_dom, comm_cod, H.
+  + apply $[_,_|H0].
+  + intuition.
+  - intros A. simpl. now rewrite !comm_id.  
 Defined.
 
 Definition FunctorC_comp `(f : X [-->] Y) `(g : Z [-->] W)
@@ -258,6 +273,10 @@ Defined.
 
 Program Definition Functor_id (X : Category)
   := [ obj A => A | hom f => f ].
+Next Obligation.
+  split; try now intros f.
+  intros f g H H0. simpl. apply map_equal. now split.
+Defined.
 
 Program Canonical Structure CAT :=
   [ dom: map F => cdom F, cod: map F => ccod F,
@@ -287,4 +306,3 @@ Next Obligation.
   rewrite (proof_irrelevance _ H2 (eq_refl _)).
   split. now compute.
 Defined.
-
