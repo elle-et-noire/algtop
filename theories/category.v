@@ -85,10 +85,31 @@ Notation "A ~[ X ]> B" := (@homDC X A B)
 Notation "A ~> B" := (A ~[_]> B)
   (at level 99, right associativity) : cat_scope.
 
-(* Class IsInverse (C : Category) (A B : C) (f : A ~> B)
+Program Definition catcompDC {X : Category} {A B C : X}
+  : Dymap (A ~> B) (B ~> C) (A ~> C)
+  := dmap f g => $[@catcomp _ $[$g, $f | _], _].
+Next Obligation.
+  destruct f as [f [Df Cf]]. destruct g as [g [Dg Cg]].
+  simpl in *. now rewrite Dg.
+Defined.
+Next Obligation.
+  destruct f as [f [Df Cf]]. destruct g as [g [Dg Cg]].
+  split; simpl.
+  - now rewrite comp_dom.
+  - now rewrite comp_cod.
+Defined.
+Next Obligation.
+  intros [f [Df Cf]] [f0 [Df0 Cf0]] E [g [Dg Cg]] [g0 [Dg0 Cg0]] E0.
+  simpeq_all. apply map_equal. split; now simpl.
+Defined.
+
+Notation "g 'o' f" := (@catcompDC _ _ _ _ f g)
+  (at level 60, right associativity) : cat_scope.
+
+Class IsInverse (C : Category) (A B : C) (f : A ~> B)
    (g : B ~> A) := {
-  invcomp1 : g o f == 1_A;
-  invcomp2 : f o g == 1_B
+  invcomp1 : $(g o f) == 1_A;
+  invcomp2 : $(f o g) == 1_B
 }.
 
 Structure Isomorph (C : Category) (A B : C) := {
@@ -96,7 +117,7 @@ Structure Isomorph (C : Category) (A B : C) := {
   invhom : B ~> A;
   isoprf :> IsInverse orthohom invhom
 }.
-#[global] Existing Instance isoprf. *)
+#[global] Existing Instance isoprf.
 
 Lemma compeq {X : Category} {f g : cathom X} H H0 :
   g o[by H] f == g o[by H0] f.
@@ -176,6 +197,21 @@ Next Obligation.
 Defined.
 Notation "X [-->] Y" := (@FunctorSetoid X Y)
   (at level 55) : cat_scope.
+
+Program Definition FunctorDC `(F : X --> Y) (A B : X)
+  : Map (A ~> B) (F A ~> F B)
+  := map f => $[ F :o f, _ ].
+Next Obligation.
+  destruct f as [f [Hd Hc]]. simpl in *. split;
+  [rewrite comm_dom | rewrite comm_cod]; now apply map_equal.
+Defined.
+Next Obligation.
+  intros [f [Hd Hc]] [f0 [Hd0 Hc0]] E.
+  simpeq_all. now rewrite E.
+Defined.
+
+Notation "F ':[o]' f" := (@FunctorDC _ _ F _ _ f)
+  (at level 60, right associativity) : cat_scope.
 
 Definition eqSetoid X := [ X | ==: eq ].
 Notation "[ 'eqS' X ]" := (@eqSetoid X)
@@ -306,3 +342,22 @@ Next Obligation.
   rewrite (proof_irrelevance _ H2 (eq_refl _)).
   split. now compute.
 Defined.
+
+Class IsFaithful `(F : X --> Y) := {
+  faith : forall f g, F :o f == F :o g -> f == g
+}.
+
+Structure IsFull `(F : X --> Y) := {
+  prehom : Map (cathom Y) (cathom X);
+  full : forall A B (f : A ~> B), F :o prehom f == f
+}.
+
+Structure Nattrans {X Y} (F G : X --> Y) := {
+  compnt :> forall A, F A ~> G A;
+  ntprf : forall A B (f : A ~> B),
+    (compnt B) o (F :[o] f) == (G :[o] f) o (compnt A)
+}.
+
+Program Definition FunctorCat (X Y : Category) :=
+  [  ]
+
