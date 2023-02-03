@@ -34,6 +34,8 @@ Structure Setoid : Type := {
 
 Notation "[  A  |  ==:  P  ]" := (@Build_Setoid A P _)
   (at level 0, A, P at level 99) : setoid_scope.
+Notation "[ ==: x y => P ]" := [ _ | ==: fun x y => P ]
+  (at level 0, x binder, y binder, P at level 99) : setoid_scope.
 Notation "( == 'in' A )" := (@equal A)
   (at level 0, format "( == 'in' A )") : setoid_scope.
 Notation "(==)" := (== in _) : setoid_scope.
@@ -122,7 +124,7 @@ Lemma map_comap `{f : Map X Y} {a : X} : f a == <f, a>.
 Proof. reflexivity. Qed.
 
 Program Definition InducedSetoid {X} {Y : Setoid} (f : X -> Y) :=
-  [ X | ==: fun x1 x2 : X => f x1 == f x2].
+  [ ==: x y => f x == f y ].
 Next Obligation.
   split; intuition. intros x y z Exy Eyz. now rewrite Exy.
 Defined.
