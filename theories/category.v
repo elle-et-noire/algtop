@@ -7,7 +7,7 @@ Set Primitive Projections.
 Set Universe Polymorphism.
 
 Require Export setoid.
-Require Import ProofIrrelevance.
+Require Import ChoiceFacts.
 
 Declare Scope cat_scope.
 Open Scope setoid_scope.
@@ -30,11 +30,11 @@ Class IsCategory obj (hom : obj -> obj -> Setoid)
 Structure Category := {
   catobj :> Type;
   cathom :> catobj -> catobj -> Setoid;
-  homcomp : forall A B C,
+  #[canonical=no]homcomp : forall A B C,
     Dymap (cathom A B) (cathom B C) (cathom A C);
   catid : forall A, cathom A A;
 
-  catprf :> IsCategory homcomp catid
+  catprf : IsCategory homcomp catid
 }.
 #[global] Existing Instance catprf.
 
@@ -57,32 +57,33 @@ Notation "1_ A" := (@catid _ A)
 
 Lemma compA (X : Category) (A B C D : X) (f : A ~> B)
   (g : B ~> C) (h : C ~> D) : h o g o f == (h o g) o f.
-Proof. apply (comp_assoc(IsCategory:=X)). Qed.
+Proof. apply (comp_assoc(IsCategory:=catprf X)). Qed.
 
 Lemma compf1 (X : Category) (A B : X) (f : A ~> B) : f o 1_A == f.
-Proof. apply (comp_idr(IsCategory:=X)). Qed.
+Proof. apply (comp_idr(IsCategory:=catprf X)). Qed.
 
 Lemma comp1f (X : Category) (A B : X) (f : A ~> B) : 1_B o f == f.
-Proof. apply (comp_idl(IsCategory:=X)). Qed.
+Proof. apply (comp_idl(IsCategory:=catprf X)). Qed.
 
-Class IsInverse (X : Category) (A B : X)
-  (f : A ~> B) (g : B ~> A) :=
-{
-  invcomp1 : g o f == 1_A;
-  invcomp2 : f o g == 1_B
-}.
+Definition IsIsomorphism (X : Category) (A B : X) (f : A ~> B) :=
+  exists g : B ~> A, g o f == 1_A /\ f o g == 1_B.
 
-Structure Isomorph (X : Category) (A B : X) := {
-  orthohom : A ~> B;
-  invhom : B ~> A;
-  isoprf :> IsInverse orthohom invhom
-}.
-#[global] Existing Instance isoprf.
-
-Class IsIsomorph (X : Category) (A B : X) := {
-  iso : exists (f : A ~> B) (g : B ~> A),
-    g o f == 1_A /\ f o g == 1_B
-}.
+Definition IsIsomorphic (X : Category) (A B : X) :=
+  exists f : A ~> B, IsIsomorphism f.
+#[global] Hint Unfold IsIsomorphism IsIsomorphic : eq.
+Program Definition IsomorphSetoid (X : Category) :=
+  [ X | ==: @IsIsomorphic X ].
+Next Obligation.
+  split; intros A; simpeq_all.
+  - exists 1_A, 1_A. split; now rewrite comp1f.
+  - intros B [f [g [E E0]]]. exists g, f. now split.
+  - intros B C [f [g [E E0]]] [f0 [g0 [E1 E2]]].
+    exists (f0 o f), (g o g0). split.
+  + now rewrite <-compA, (compA _ _ g0), E1, comp1f.
+  + now rewrite <-compA, (compA _ _ f), E0, comp1f.
+Defined.
+Notation "A === B" := (A == B in @IsomorphSetoid _)
+  (at level 70, no associativity) : cat_scope.
 
 Program Definition OppCat (X : Category) :=
   [ hom B A => A ~> B,
@@ -191,11 +192,16 @@ Class IsFull `(F : X --> Y) := {
     exists (g : A ~> B), F :o g == f
 }.
 
+Class IsNattrans {X Y} {F G : X --> Y} (c : forall A, F A ~> G A) := {
+  natural : forall A B (f : A ~> B),
+    (c B) o (F :o f) == (G :o f) o (c A)
+}.
+
 Structure Nattrans {X Y} (F G : X --> Y) := {
   component :> forall A, F A ~> G A;
-  ntprf : forall A B (f : A ~> B),
-    (component B) o (F :o f) == (G :o f) o (component A)
+  ntprf :> IsNattrans component
 }.
+#[global] Existing Instance ntprf.
 
 Notation "F ==> G" := (@Nattrans _ _ F G) : cat_scope.
 Notation "[ ==>: C ]" := (@Build_Nattrans _ _ _ _ C _)
@@ -222,22 +228,47 @@ Notation "F [==>] G" := (@NattransSetoid _ _ F G)
 Program Definition Nattrans_comp {X Y} {F G H : X --> Y}
   (a : F ==> G) (b : G ==> H) := [ nt A => (b A) o (a A) ].
 Next Obligation.
-  now rewrite <-compA, ntcomm, compA, ntcomm, compA.
+  split; intros. now rewrite <-compA, ntcomm, compA, ntcomm, compA.
 Defined.
 Notation "b =o= a" := (@Nattrans_comp _ _ _ _ _ a b)
   (at level 58, right associativity) : cat_scope.
 
-Program Definition FunctorCat (X Y : Category) :=
-  [ hom F G => Nattrans F G, comp F G H a b => b =o= a,
+Program Canonical Structure FunctorCat (X Y : Category) :=
+  [ hom (F : X --> Y) G => Nattrans F G, comp F G H a b => b =o= a,
     id F => [ nt A => 1_(F A) ] ].
-Next Obligation. now rewrite comp1f, compf1. Defined.
 Next Obligation.
   intros a a0 E b b0 E0 A. simpeq_all.
   now rewrite E, E0.
 Defined.
+Next Obligation. split; intros. now rewrite compf1, comp1f. Defined.
 Next Obligation.
   split; intros; simpeq; intros.
   - now rewrite compA.
   - now rewrite compf1.
   - now rewrite comp1f.
 Defined.
+
+Notation "[ X , Y ]" := (@FunctorCat X Y)
+  (at level 0, X, Y at level 99) : cat_scope.
+
+(* Lemma compfI (X : Category) (A B : X) (f : A ~> B)
+  IsIsomorphism f -> () *)
+
+Lemma natiso_cmpiso X Y (F G : X --> Y) (a : F ==> G) :
+  DependentFunctionalChoice ->
+  IsIsomorphism a == forall A, IsIsomorphism (a A).
+Proof.
+  intros DFC. unfold IsIsomorphism. split; simpeq_all.
+  - intros [g [E E0]] A. exists (g A). split;
+    (apply E || apply E0).
+  - intros H.
+    pose (DFC X (fun A => G A ~> F A) (fun A g => g o a A == 1_(F A) /\ a A o g == 1_(G A))).
+    simpl in *. destruct (e H) as [g H0].
+    assert (IsNattrans g).
+    { split. intros. now rewrite <-(compf1 (G :o f)),
+      <-(proj2 (H0 A)), (compA (g A)), <-natural, !compA,
+      (proj1 (H0 B)), comp1f. }
+    exists (Build_Nattrans H1). split; intros A; simpl in *;
+    apply (proj1 (H0 A)) || apply (proj2 (H0 A)).
+Qed.
+
