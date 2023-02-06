@@ -6,42 +6,45 @@ Set Reversible Pattern Implicit.
 Set Primitive Projections.
 Set Universe Polymorphism.
 
+Require Export setoid.
 Require Import ChoiceFacts.
 
 Declare Scope cat_scope.
+Open Scope setoid_scope.
 Open Scope cat_scope.
 
 Obligation Tactic :=
-  (try now intros x); (try now split; intros x); intros.
+  (try now intros x); (try now split; intros x); intros; (try apply \ISE).
 
-Class IsCategory (obj : Type) (hom : obj -> obj -> Type)
+Class IsCategory obj (hom : obj -> obj -> Setoid)
   (comp : forall {A B C}, hom A B -> hom B C -> hom A C)
   (id : forall A, hom A A) :=
 {
-  comp_assoc : forall A B C D (f : hom A B) (g : hom B C)
-    (h : hom C D), comp (comp f g) h = comp f (comp g h);
-  comp_idr : forall A B (f : hom A B), comp (id A) f = f;
-  comp_idl : forall A B (f : hom A B), comp f (id B) = f
+  comp_assoc : forall A B C D (f : hom A B)
+    (g : hom B C) (h : hom C D),
+    comp (comp f g) h == comp f (comp g h);
+  comp_idr : forall A B (f : hom A B), comp (id A) f == f;
+  comp_idl : forall A B (f : hom A B), comp f (id B) == f;
 }.
 
 Structure Category := {
   catobj :> Type;
-  cathom : catobj -> catobj -> Type;
-  homcomp : forall A B C,
-    cathom A B -> cathom B C -> cathom A C;
+  cathom :> catobj -> catobj -> Setoid;
+  #[canonical=no]homcomp : forall A B C,
+    Dymap (cathom A B) (cathom B C) (cathom A C);
   catid : forall A, cathom A A;
 
-  catprf :> IsCategory homcomp catid
+  catprf : IsCategory homcomp catid
 }.
 #[global] Existing Instance catprf.
 
-Notation "[ 'o:' comp , '1:' id ]" :=
-  (@Build_Category _ _ comp id _)
-  (at level 0, comp, id at level 99) : cat_scope.
-Notation "[ 'comp' A B C f g => P , 'id' D => Q ]"
-  := [ o: fun A B C f g => P, 1: fun D => Q ]
-  (at level 0, A binder, B binder, C binder, D binder,
-  f binder, g binder, P, Q at level 99) : cat_scope.
+Notation "[ '~>:' hom , 'o:' comp , '1:' id ]"
+  := (@Build_Category _ hom comp id _)
+  (at level 0, hom, comp, id at level 99) : cat_scope.
+Notation "[ 'hom' A B => P , 'comp' A0 B0 C f g => P0 , 'id' A1 => P1 ]"
+  := [ ~>: fun A B => P, o: fun A0 B0 C => dmap f g => P0, 1: fun A1 => P1 ]
+  (at level 0, A binder, B binder, A0 binder, B0 binder, C binder,
+  f binder, g binder, A1 binder, P, P0, P1 at level 99) : cat_scope.
 Notation "A ~[ X ]> B" := (@cathom X A B)
   (at level 90, no associativity) : cat_scope.
 Notation "A ~> B" := (A ~[_]> B)
@@ -53,90 +56,134 @@ Notation "1_ A" := (@catid _ A)
   format "1_ A") : cat_scope.
 
 Lemma compA (X : Category) (A B C D : X) (f : A ~> B)
-  (g : B ~> C) (h : C ~> D) : h o g o f = (h o g) o f.
+  (g : B ~> C) (h : C ~> D) : h o g o f == (h o g) o f.
 Proof. apply (comp_assoc(IsCategory:=catprf X)). Qed.
 
-Lemma compf1 (X : Category) (A B : X) (f : A ~> B) : f o 1_A = f.
+Lemma compf1 (X : Category) (A B : X) (f : A ~> B) : f o 1_A == f.
 Proof. apply (comp_idr(IsCategory:=catprf X)). Qed.
 
-Lemma comp1f (X : Category) (A B : X) (f : A ~> B) : 1_B o f = f.
+Lemma comp1f (X : Category) (A B : X) (f : A ~> B) : 1_B o f == f.
 Proof. apply (comp_idl(IsCategory:=catprf X)). Qed.
 
 Definition IsIsomorphism (X : Category) (A B : X) (f : A ~> B) :=
-  exists g : B ~> A, g o f = 1_A /\ f o g = 1_B.
+  exists g : B ~> A, g o f == 1_A /\ f o g == 1_B.
 
 Definition IsIsomorphic (X : Category) (A B : X) :=
   exists f : A ~> B, IsIsomorphism f.
-Notation "A === B" := (@IsIsomorphic _ A B)
+#[global] Hint Unfold IsIsomorphism IsIsomorphic : eq.
+Program Definition IsomorphSetoid (X : Category) :=
+  [ X | ==: @IsIsomorphic X ].
+Next Obligation.
+  split; intros A; simpeq_all.
+  - exists 1_A, 1_A. split; now rewrite comp1f.
+  - intros B [f [g [E E0]]]. exists g, f. now split.
+  - intros B C [f [g [E E0]]] [f0 [g0 [E1 E2]]].
+    exists (f0 o f), (g o g0). split.
+  + now rewrite <-compA, (compA _ _ g0), E1, comp1f.
+  + now rewrite <-compA, (compA _ _ f), E0, comp1f.
+Defined.
+Notation "A === B" := (A == B in @IsomorphSetoid _)
   (at level 70, no associativity) : cat_scope.
 
 Program Definition OppCat (X : Category) :=
-  [ comp (A : X) B C (f : B ~> A) (g : C ~> B) => f o g , id A => 1_A ].
+  [ hom B A => A ~> B,
+    comp A B C f g => f o g ,
+     id A => 1_A ].
+Next Obligation.
+  intros f f0 E g g0 E0. now rewrite E, E0.
+Defined.
 Next Obligation.
   split; simpl; intuition.
   - now rewrite compA.
   - now rewrite comp1f.
   - now rewrite compf1.
 Defined.
+
 Notation "C ^op" := (@OppCat C)
   (at level 40, left associativity, format "C ^op") : cat_scope.
 
 Class IsFunctor (X Y : Category) (fobj : X -> Y)
-  (fhom : forall {A B}, A ~> B -> fobj A ~> fobj B) :=
+  (fhom : forall {A B}, Map (A ~> B) (fobj A ~> fobj B)) :=
 {
   compFC : forall A B C (f : A ~> B) (g : B ~> C),
-    fhom (g o f) = (fhom g) o (fhom f);
-  idFC : forall A, fhom 1_A = 1_(fobj A)
+    fhom (g o f) == (fhom g) o (fhom f);
+  idFC : forall A, fhom 1_A == 1_(fobj A)
 }.
 
 Structure Functor (X Y : Category) := {
   funobj :> X -> Y;
-  funhom : forall A B, A ~> B -> funobj A ~> funobj B;
+  funhom : forall A B, Map (A ~> B) (funobj A ~> funobj B);
   funprf :> IsFunctor funhom
 }.
 #[global] Existing Instance funprf.
 
-Notation "X --> Y" := (@Functor X Y)
-  (at level 55, right associativity) : cat_scope.
+Notation "X --> Y" := (@Functor X Y) : cat_scope.
 Notation "F ':o' f" := (@funhom _ _ F _ _ f)
   (at level 60, right associativity) : cat_scope.
 Notation "[ 'obj:' F , 'hom:' Ff ]" :=
   (@Build_Functor _ _ F Ff _)
   (at level 0, F, Ff at level 99, no associativity) : cat_scope.
 Notation "[ 'obj' A => FA , 'hom' B C f => Ff ]" :=
-  [ obj: fun A => FA , hom: fun B C f => Ff ]
+  [ obj: fun A => FA , hom: fun B C => map f => Ff ]
   (at level 0, A binder, B binder, C binder, f binder,
   FA, Ff at level 99, no associativity)
   : cat_scope.
 
 Inductive hom_eq {X : Category} {A B : X} (f : A ~> B)
   : forall {C D}, C ~> D -> Prop :=
-  hom_eqref : forall (g : A ~> B), f = g -> hom_eq f g.
+  hom_eqref : forall (g : A ~> B), f == g -> hom_eq f g.
 Notation "f =H g" := (@hom_eq _ _ _ f _ _ g)
   (at level 70, no associativity) : cat_scope.
 
+Program Canonical Structure FunctorSetoid X Y :=
+  [ ==: (F : X --> Y) G => forall A B (f : A ~> B), F :o f =H G :o f ].
+Next Obligation.
+  split.
+  - now intros F f.
+  - intros F G H A B f. destruct (H _ _ f). now split.
+  - intros F G H H0 H1 A B f. destruct (H1 _ _ f).
+    destruct (H0 _ _ f). split. now rewrite H3.
+Defined.
+Notation "X [-->] Y" := (@FunctorSetoid X Y)
+  (at level 55) : cat_scope.
+
+Program Definition funcSetoid X Y :=
+  [ X -> Y | ==: fun f g => forall x, f x = g x ].
+Next Obligation.
+  split; intuition. intros f g h E E0 x. now rewrite E.
+Defined.
+
 Program Definition TypeCat :=
-  [ comp A B C (f : A -> B) (g : B -> C) => fun x => g (f x),
+  [ hom A B => funcSetoid A B, comp A B C f g => fun x => g (f x),
     id A => fun x => x ].
+Next Obligation.
+  intros f f0 E g g0 E0 x. now rewrite E, E0.
+Defined.
 
 Program Definition Functor_comp {X Y Z : Category}
-  (F : X --> Y) (G : Y --> Z) : X --> Z :=
+  : Dymap (X --> Y) (Y --> Z) (X --> Z) := dmap F G =>
   [ obj A => G (F A), hom A B f => G :o (F :o f) ].
+Next Obligation.
+  intros f f0 E. now rewrite E.
+Defined.
 Next Obligation.
   split.
   - intros A B C f g. simpl. now rewrite !compFC.
   - intros A. simpl. now rewrite !idFC.
 Defined.
+Next Obligation.
+  intros F F0 E G G0 E0 A B f. simpl in *.
+  destruct (E A B f). destruct (E0 (F A) (F B) g).
+  split. now rewrite H.
+Defined.
 Notation "G :o: F" := (@Functor_comp _ _ _ F G)
   (at level 54, right associativity) : cat_scope.
 
 Program Canonical Structure CAT :=
-  [ comp X Y Z (F : X --> Y) (G : Y --> Z) => G :o: F,
-    id X => [ obj A => A, hom A B (f : A ~> B) => f ] ].
-Next Obligation.
-  split; intuition; simpl.
-  - destruct f, g, h. injection.   rewrite compFC.
-Defined.
+  [ hom X Y => X [-->] Y, comp X Y Z F G => G :o: F,
+    id X => [ obj A => A, hom A B f => f ] ].
+Next Obligation. apply Functor_comp_obligation_3. Defined.
+Check CAT_obligation_4.
 
 Class IsFaithful `(F : X --> Y) := {
   faith : forall A B (f g : A ~> B), F :o f == F :o g -> f == g
@@ -276,8 +323,16 @@ Defined.
   {F0 : Y --> Z} {G0 : Z --> Y}
   (eta0 : 1_Y ==> G0 :o: F0) *)
 
+Program Definition FunctorImId {X Y} {F F0 : X --> Y} (H : F == F0)
+  (A : X) : F A ~> F0 A.
+simpl in *. pose (H A A (1_A)).
+destruct h.
+
 Program Definition nt_revlconv {X Y} {F F0 : X --> Y} (H : F == F0)
   : F ==> F0.
+destruct F as [F Fhom Fprf].
+destruct F0 as [F0 Fhom0 Fprf0].
+simpl in *. 
 rewrite H.
 
 Program Definition EquivCatSetoid :=
