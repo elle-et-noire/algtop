@@ -14,35 +14,14 @@ Declare Scope cat_scope.
 Open Scope setoid_scope.
 Open Scope cat_scope.
 
+Ltac mapequiv := now intros x x0 E; rewrite E.
+Ltac dmapequiv := now intros x x0 E y y0 E0; rewrite E, E0.
+
 Obligation Tactic :=
-  (try now intros x); (try now split; intros x); intros; (try apply \ISE).
-
-Inductive Composables {obj hom : Setoid} (dom cod : Map hom obj) :=
-  ligature : forall f g, cod f == dom g -> Composables _ _.
-Notation "$[ g , f | H ]" := (@ligature _ _ _ _ f g H)
-  (at level 0, format "$[ g ,  f  |  H ]") : cat_scope.
-Notation "{ 'o' dom , cod }" := (@Composables _ _ dom cod)
-  (at level 0, dom, cod at level 99,
-  format "{ 'o'  dom ,  cod }") : cat_scope.
-
-Definition composables_eq {obj hom : Setoid} {dom cod : Map hom obj}
-  (c c0 : Composables dom cod) :=
-  let (f, g, H) := c in let (f0, g0, H0) := c0 in f == f0 /\ g == g0.
-#[global] Hint Unfold composables_eq : eq.
-
-Program Canonical Structure ComposablesSetoid
-  {obj hom : Setoid} (dom cod : Map hom obj) :=
-  [ _ | ==: @composables_eq _ _ dom cod ].
-Next Obligation.
-  split.
-  - intros [f g H]. now split.
-  - intros [f g H] [f0 g0 H0] [E E0]. now split.
-  - intros [f g H] [f0 g0 H0] [f1 g1 H1] [E E0] [E1 E2].
-    split; now (rewrite E || rewrite E0).
-Defined.
-Notation "[ 'o' dom , cod ]" := (@ComposablesSetoid _ _ dom cod)
-  (at level 0, dom, cod at level 99,
-  format "[ 'o'  dom ,  cod ]") : cat_scope.
+  try (now intros x); intros; try (now mapequiv); try (now dmapequiv).
+  (* (try mapequiv);
+  (try now (intros x x0 E y y0 E0; rewrite E, E0));
+  (try now intros x); (try now split; intros x); intros; (try apply \ISE). *)
 
 Class IsCategory {obj hom : Setoid} (dom cod : Map hom obj)
   (comp : Binop hom) (id : Map obj hom) (actual : {ens hom}) :=
@@ -73,107 +52,83 @@ Structure Category := {
 }.
 #[global] Existing Instance catprf.
 
-Notation "[ 'dom:' dom , 'cod:' cod , 'o:' comp , '1:' id ]"
-  := (@Build_Category _ _ dom cod comp id _)
-  (at level 0, dom, cod, comp, id at level 99) : cat_scope.
-Notation "[ 'dom' F => A , 'cod' G => B , 'comp' C => P , 'id' D => Q ]"
-  := [ dom: map F => A, cod: map G => B, o: map C => P, 1: map D => Q ]
-  (at level 0, F binder, G binder, C binder, D binder,
-  A, B, P, Q at level 99) : cat_scope.
+Arguments actual {_}.
+
+Notation "[ 'dom:' D , 'cod:' C , 'o:' P , '1:' J , 'act:' A ]"
+  := (@Build_Category _ _ D C P J A _)
+  (at level 0, D, C, P, J, A at level 99) : cat_scope.
+Notation "[ 'dom' F => A , 'cod' G => B , 'comp' f g => P , 'id' D => Q , 'act' E => R ]"
+  := [ dom: map F => A, cod: map G => B, o: dmap f g => P, 1: map D => Q, act: [ E | R ] ]
+  (at level 0, F binder, G binder, f binder, g binder, D binder, E binder,
+  A, B, P, Q, R at level 99) : cat_scope.
 Notation "'dom' f" := (@catdom _ f)
   (at level 60, right associativity) : cat_scope.
 Notation "'cod' f" := (@catcod _ f)
   (at level 60, right associativity) : cat_scope.
-Notation "g o[ 'by' H ] f" := (@homcomp _ $[g, f | H])
-  (at level 60, H at level 99, right associativity,
-  format "g  o[ 'by'  H ]  f") : cat_scope.
-Notation "g o[] f" := (g o[by _] f)
-  (at level 60, right associativity, format "g  o[]  f") : cat_scope.
+Notation "g 'o' f" := (@homcomp _ f g)
+  (at level 60, right associativity) : cat_scope.
 Notation "1_ A" := (@catid _ A)
   (at level 0, right associativity, format "1_ A") : cat_scope.
 
-Section uouo.
-Variables obj hom : Setoid.
-Variables Dom Cod : Map hom obj.
-Check [o Dom, Cod].
-Variables X : Category.
-Variables f g : cathom X.
-Variables H : cod f == dom g.
-Check (g o[by H] f).
-End uouo.
-
 Program Definition homDC {X : Category} :=
-  dmap A B => [ f | dom f == A /\ cod f == B ].
+  dmap A B => [ f | dom f == A /\ cod f == B /\ actual f ].
 Next Obligation.
-  intros f f0 E. split; intros [E0 E1]; split; now rewrite2 E.
-Defined.
-Next Obligation.
-  intros A A0 E B B0 E0 f f0 E1. split; intros [H H0]; split;
-  rewrite2 E1; try (now rewrite H); now rewrite H0.
+  intros A A0 E B B0 E0 f f0 E1. split; intros [H [H0 H1]];
+  split; try split; rewrite2 E1; intuition; try (now rewrite H);
+  now rewrite H0.
 Defined.
 Notation "A ~> B" := (@homDC _ A B)
   (at level 90, no associativity) : cat_scope.
 
 Program Definition homDC_comp {X : Category} {A B C : X}
   : Dymap (A ~> B) (B ~> C) (A ~> C)
-  := dmap f g => $[g o[by _] f, _].
+  := dmap f g => $[g o f, _].
 Next Obligation.
-  destruct f as [f [H H0]]. destruct g as [g [H1 H2]].
-  simpl. now rewrite H0.
+  destruct f as [f [H [H0 H1]]]. destruct g as [g [H2 [H3 H4]]].
+  simpl. split; try split.
+  - now rewrite comp_dom.
+  - now rewrite comp_cod.
+  - rewrite comp_actual. intuition. now rewrite H0.
 Defined.
 Next Obligation.
-  destruct f as [f [H H0]]. destruct g as [g [H1 H2]].
-  split; simpl in *; now (rewrite comp_dom || rewrite comp_cod).
+  intros f f0 E g g0 E0. simpeq_all. now rewrite E, E0.
 Defined.
-Next Obligation.
-  intros f f0 E g g0 E0. simpeq_all. apply map_equal. split; now simpl.
-Defined.
-Notation "g 'o' f" := (@homDC_comp _ _ _ _ f g)
+Notation "g '[o]' f" := (@homDC_comp _ _ _ _ f g)
   (at level 60, right associativity) : cat_scope.
 
 Program Definition idDC {X : Category} (A : X) : A ~> A
   := $[1_A, _].
-Next Obligation. split; now (rewrite id_dom || rewrite id_cod). Defined.
+Next Obligation.
+  simpl. split; try split;
+  [apply id_dom | apply id_cod | apply id_actual].
+Defined.
 Notation "1_[ A ]" := (@idDC _ A)
   (at level 0, format "1_[ A ]") : cat_scope.
-
-Program Definition hom_homDC `(f : cathom X) : dom f ~> cod f
-  := $[f, _].
 
 Section CatTheory.
   Context {X : Category}.
   Implicit Types (A B C D : X) (f g : cathom X).
 
-  Lemma compeq f g H H0 : g o[by H] f == g o[by H0] f.
-  Proof. apply map_equal. now split. Qed.
-
-  Lemma comp1fH f H : 1_(cod f) o[by H] f == f.
-  Proof. apply comp_idl. Qed.
-
-  Lemma comp1F A B (F : A ~> B) : 1_[B] o F == F.
+  Lemma comp1F A B (F : A ~> B) : 1_[B] [o] F == F.
   Proof.
-    case F as [f [H H0]]. simpeq.
-    assert (cod f == dom 1_(cod f)) by now rewrite id_dom.
-    rewrite <-(comp_idl H1) at 3. apply map_equal.
-    split; intuition. now apply map_equal.
+    case F as [f [H [H0 H1]]]. simpeq.
+    now rewrite <-H0, comp_idl.
   Qed.
 
-  Lemma compF1 A B (F : A ~> B) : F o 1_[A] == F.
+  Lemma compF1 A B (F : A ~> B) : F [o] 1_[A] == F.
   Proof.
     case F as [f [H H0]]. simpeq.
-    assert (cod 1_(dom f) == dom f) by now rewrite id_cod.
-    rewrite <-(comp_idr H1) at 6. apply map_equal.
-    split; intuition. now apply map_equal.
+    now rewrite <-H, comp_idr.
   Qed.
 
   Lemma compA A B C D (F : A ~> B) (G : B ~> C) (H : C ~> D)
-    : H o G o F == (H o G) o F.
+    : H [o] G [o] F == (H [o] G) [o] F.
   Proof. apply comp_assoc. Qed.
 End CatTheory.
 
 Class IsIsopair {X : Category} {A B : X} (f : A ~> B) (g : B ~> A) := {
-  isodom : g o f == 1_[A];
-  isocod : f o g == 1_[B]
+  isodom : g [o] f == 1_[A];
+  isocod : f [o] g == 1_[B]
 }.
 
 Definition IsIsomorphic (X : Category) (A B : X) :=
@@ -186,7 +141,7 @@ Next Obligation.
   - exists 1_[A], 1_[A]. split; now rewrite comp1F.
   - intros B [f [g [H H0]]]. exists g, f. now split.
   - intros B C [f [g [H H0]]] [f0 [g0 [H1 H2]]].
-    exists (f0 o f), (g o g0). split.
+    exists (f0 [o] f), (g [o] g0). split.
   + now rewrite <-compA, (compA f), H1, comp1F.
   + now rewrite <-compA, (compA g0), H0, comp1F.
 Defined.
@@ -194,21 +149,19 @@ Notation "A === B" := (A == B in @IsomorphSetoid _)
   (at level 70, no associativity) : cat_scope.
 
 Program Definition OppCat (X : Category) :=
-  [ dom: catcod X, cod: catdom X,
-    o: map c => let (f, g, H) := c in f o[by _] g,
-    1: catid X ].
-Next Obligation.
-  intros [f g H] [f0 g0 H0] [E E0]. apply map_equal. now split.
-Defined.
+  [ dom (f : cathom X) => cod f, cod f => dom f,
+    comp f g => f o g, id A => 1_A, act f => actual f ].
 Next Obligation.
   split; intuition; simpl.
   - apply comp_cod.
   - apply comp_dom.
   - symmetry. apply comp_assoc.
+  - now rewrite comp_actual.
   - apply id_cod.
   - apply id_dom.
   - apply comp_idl.
   - apply comp_idr.
+  - apply id_actual.
 Defined.
 Notation "C ^op" := (@OppCat C)
   (at level 40, left associativity, format "C ^op") : cat_scope.

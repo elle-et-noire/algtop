@@ -141,7 +141,7 @@ Notation "[  x  :  X  |  P  ]" :=
   (@Build_Ensemble _ (map (x : X) => P))
   (at level 0, x at level 99) : setoid_scope.
 Notation "[  x  |  P  ]" := [ x : _ | P ]
-  (at level 0, x at level 99) : setoid_scope.
+  (at level 0, x binder, x, P at level 99) : setoid_scope.
 Notation "'ens' 'by' P" := (@Build_Ensemble _ P)
   (at level 200, no associativity) : setoid_scope.
 Notation "[  x 'in' A | P  ]" := [ x | A x /\ P ]
