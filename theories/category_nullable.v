@@ -7,7 +7,7 @@ Set Primitive Projections.
 Set Universe Polymorphism.
 
 Require Export setoid.
-Require Import ProofIrrelevance.
+(* Require Import ProofIrrelevance. *)
 Require Import ChoiceFacts.
 
 Declare Scope cat_scope.
@@ -44,18 +44,20 @@ Notation "[ 'o' dom , cod ]" := (@ComposablesSetoid _ _ dom cod)
   (at level 0, dom, cod at level 99,
   format "[ 'o'  dom ,  cod ]") : cat_scope.
 
-Class IsCategory {obj hom : Setoid} {dom cod : Map hom obj}
-  (comp : Map [o dom, cod] hom) (id : obj -> hom) :=
+Class IsCategory {obj hom : Setoid} (dom cod : Map hom obj)
+  (comp : Binop hom) (id : Map obj hom) (actual : {ens hom}) :=
 {
-  comp_dom : forall f g H, dom (comp $[g, f | H]) == dom f;
-  comp_cod : forall f g H, cod (comp $[g, f | H]) == cod g;
-  comp_assoc : forall f g h H H0 H1 H2,
-    comp $[h, comp $[g, f | H] | H0] ==
-    comp $[comp $[h, g | H1], f | H2];
+  comp_dom : forall f g, dom (comp f g) == dom f;
+  comp_cod : forall f g, cod (comp f g) == cod g;
+  comp_assoc : forall f g h,
+    comp (comp f g) h == comp f (comp g h);
+  comp_actual : forall f g,
+    actual (comp f g) == (actual f /\ actual g /\ cod f == dom g);
   id_dom : forall A, dom (id A) == A;
   id_cod : forall A, cod (id A) == A;
-  comp_idr : forall f H, comp $[f, id (dom f) | H] == f;
-  comp_idl : forall f H, comp $[id (cod f), f | H] == f;
+  comp_idr : forall f, comp (id (dom f)) f == f;
+  comp_idl : forall f, comp f (id (cod f)) == f;
+  id_actual : forall A, actual (id A)
 }.
 
 Structure Category := {
@@ -63,10 +65,11 @@ Structure Category := {
   cathom : Setoid;
   catdom : Map cathom catobj;
   catcod : Map cathom catobj;
-  homcomp : Map [o catdom, catcod] cathom;
+  homcomp : Binop cathom;
   catid : Map catobj cathom;
+  actual : {ens cathom};
 
-  catprf :> IsCategory homcomp catid
+  catprf :> IsCategory catdom catcod homcomp catid actual
 }.
 #[global] Existing Instance catprf.
 

@@ -456,4 +456,25 @@ Defined.
 Notation "f ^~" := (@dmap_curry2_map _ _ _ f)
   (at level 10, no associativity) : setoid_scope.
 
+Definition Ope X := Map X X.
+Definition Binop X := Dymap X X X.
+
+Class Associative {X : Setoid} (op : X -> X -> X) := {
+  assoc : forall x y z, op x (op y z) == op (op x y) z 
+}.
+
+Class LIdentical {X : Setoid} (op : X -> X -> X) e := {
+  identl : forall x, op e x == x
+}.
+
+Class RIdentical {X : Setoid} (op : X -> X -> X) e := {
+  identr : forall x, op x e == x
+}.
+
+Class Identical {X : Setoid} (op : X -> X -> X) e := {
+  id_identl :> LIdentical op e;
+  id_identr :> RIdentical op e
+}.
+#[global] Existing Instances id_identl id_identr.
+
 Close Scope setoid_scope.
