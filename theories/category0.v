@@ -13,26 +13,32 @@ Declare Scope cat_scope.
 Open Scope setoid_scope.
 Open Scope cat_scope.
 
-Obligation Tactic :=
-  (try now intros x); (try now split; intros x); intros; (try apply \ISE).
+Ltac mapequiv := now intros x x0 E; rewrite E.
+Ltac dmapequiv := now intros x x0 E y y0 E0; rewrite E, E0.
 
-Class IsCategory obj (hom : obj -> obj -> Setoid)
+Obligation Tactic :=
+  try (now intros x); intros; try (now mapequiv); try (now dmapequiv).
+
+(* Obligation Tactic :=
+  (try now intros x); (try now split; intros x); intros; (try apply \ISE). *)
+
+Class IsCategory (obj : Setoid) (hom : obj -> obj -> Setoid)
   (comp : forall {A B C}, hom A B -> hom B C -> hom A C)
-  (id : forall A, hom A A) :=
+  (id : forall {A B}, A == B -> hom A B) :=
 {
   comp_assoc : forall A B C D (f : hom A B)
-    (g : hom B C) (h : hom C D),
-    comp (comp f g) h == comp f (comp g h);
-  comp_idr : forall A B (f : hom A B), comp (id A) f == f;
-  comp_idl : forall A B (f : hom A B), comp f (id B) == f;
+    (g : hom B C) (h : hom C D), comp (comp f g) h == comp f (comp g h);
+  comp_idr : forall A B (f : hom A B), comp (id (reflexivity A)) f == f;
+  comp_idl : forall A B (f : hom A B), comp f (id (reflexivity B)) == f;
+  id_prfirr : forall A B (H H0 : A == B), id H == id H0
 }.
 
 Structure Category := {
-  catobj :> Type;
+  catobj :> Setoid;
   cathom :> catobj -> catobj -> Setoid;
-  #[canonical=no]homcomp : forall A B C,
+  #[canonical=no] homcomp : forall A B C,
     Dymap (cathom A B) (cathom B C) (cathom A C);
-  catid : forall A, cathom A A;
+  catid : forall A B, A == B -> cathom A B;
 
   catprf : IsCategory homcomp catid
 }.
@@ -41,17 +47,23 @@ Structure Category := {
 Notation "[ '~>:' hom , 'o:' comp , '1:' id ]"
   := (@Build_Category _ hom comp id _)
   (at level 0, hom, comp, id at level 99) : cat_scope.
-Notation "[ 'hom' A B => P , 'comp' A0 B0 C f g => P0 , 'id' A1 => P1 ]"
-  := [ ~>: fun A B => P, o: fun A0 B0 C => dmap f g => P0, 1: fun A1 => P1 ]
+Notation "[ 'hom' A B => P , 'comp' A0 B0 C f g => P0 , 'id' A1 B1 H => P1 ]"
+  := [ ~>: fun A B => P, o: fun A0 B0 C => dmap f g => P0, 1: fun A1 B1 H => P1 ]
   (at level 0, A binder, B binder, A0 binder, B0 binder, C binder,
-  f binder, g binder, A1 binder, P, P0, P1 at level 99) : cat_scope.
+  f binder, g binder, A1 binder, B1 binder, H binder, P, P0, P1 at level 99) : cat_scope.
 Notation "A ~[ X ]> B" := (@cathom X A B)
   (at level 90, no associativity) : cat_scope.
 Notation "A ~> B" := (A ~[_]> B)
   (at level 90, no associativity) : cat_scope.
 Notation "g 'o' f" := (@homcomp _ _ _ _ f g)
   (at level 60, right associativity) : cat_scope.
-Notation "1_ A" := (@catid _ A)
+Notation "1_[ B , A 'by' H ]" := (@catid _ A B H)
+  (at level 0, B, A, H at level 99, right associativity,
+  format "1_[ B ,  A  'by'  H ]") : cat_scope.
+Notation "1_[ B , A ]" := 1_[B, A by _]
+  (at level 0, B, A at level 99, right associativity,
+  format "1_[ B ,  A ]") : cat_scope.
+Notation "1_ A" := 1_[A, A by reflexivity A]
   (at level 0, right associativity,
   format "1_ A") : cat_scope.
 
@@ -64,6 +76,9 @@ Proof. apply (comp_idr(IsCategory:=catprf X)). Qed.
 
 Lemma comp1f (X : Category) (A B : X) (f : A ~> B) : 1_B o f == f.
 Proof. apply (comp_idl(IsCategory:=catprf X)). Qed.
+
+Lemma idhom_refl (X : Category) (A : X) (H : A == A) : 1_[A,A by H] == 1_A.
+Proof. apply id_prfirr. Qed.
 
 Definition IsIsomorphism (X : Category) (A B : X) (f : A ~> B) :=
   exists g : B ~> A, g o f == 1_A /\ f o g == 1_B.
@@ -86,19 +101,15 @@ Notation "A === B" := (A == B in @IsomorphSetoid _)
   (at level 70, no associativity) : cat_scope.
 
 Program Definition OppCat (X : Category) :=
-  [ hom B A => A ~> B,
-    comp A B C f g => f o g ,
-     id A => 1_A ].
-Next Obligation.
-  intros f f0 E g g0 E0. now rewrite E, E0.
-Defined.
+  [ hom B A => A ~> B, comp A B C f g => f o g ,
+    id A B H => 1_[A, B] ].
 Next Obligation.
   split; simpl; intuition.
   - now rewrite compA.
-  - now rewrite comp1f.
-  - now rewrite compf1.
+  - now rewrite idhom_refl, comp1f.
+  - now rewrite idhom_refl, compf1.
+  - apply id_prfirr.
 Defined.
-
 Notation "C ^op" := (@OppCat C)
   (at level 40, left associativity, format "C ^op") : cat_scope.
 
