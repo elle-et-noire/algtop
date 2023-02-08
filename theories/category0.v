@@ -8,6 +8,7 @@ Set Universe Polymorphism.
 
 Require Export setoid.
 Require Import ChoiceFacts.
+Require Import ProofIrrelevance.
 
 Declare Scope cat_scope.
 Open Scope setoid_scope.
@@ -17,7 +18,7 @@ Ltac mapequiv := now intros x x0 E; rewrite E.
 Ltac dmapequiv := now intros x x0 E y y0 E0; rewrite E, E0.
 
 Obligation Tactic :=
-  try (now intros x); intros; try (now mapequiv); try (now dmapequiv).
+  try (now intros x); (try now split; intros x); intros; try (now mapequiv); try (now dmapequiv).
 
 (* Obligation Tactic :=
   (try now intros x); (try now split; intros x); intros; (try apply \ISE). *)
@@ -30,7 +31,6 @@ Class IsCategory (obj : Setoid) (hom : obj -> obj -> Setoid)
     (g : hom B C) (h : hom C D), comp (comp f g) h == comp f (comp g h);
   comp_idr : forall A B (f : hom A B), comp (id (reflexivity A)) f == f;
   comp_idl : forall A B (f : hom A B), comp f (id (reflexivity B)) == f;
-  id_prfirr : forall A B (H H0 : A == B), id H == id H0
 }.
 
 Structure Category := {
@@ -78,7 +78,7 @@ Lemma comp1f (X : Category) (A B : X) (f : A ~> B) : 1_B o f == f.
 Proof. apply (comp_idl(IsCategory:=catprf X)). Qed.
 
 Lemma idhom_refl (X : Category) (A : X) (H : A == A) : 1_[A,A by H] == 1_A.
-Proof. apply id_prfirr. Qed.
+Proof. now rewrite (proof_irrelevance _ H (reflexivity A)). Qed.
 
 Definition IsIsomorphism (X : Category) (A B : X) (f : A ~> B) :=
   exists g : B ~> A, g o f == 1_A /\ f o g == 1_B.
@@ -108,7 +108,6 @@ Next Obligation.
   - now rewrite compA.
   - now rewrite idhom_refl, comp1f.
   - now rewrite idhom_refl, compf1.
-  - apply id_prfirr.
 Defined.
 Notation "C ^op" := (@OppCat C)
   (at level 40, left associativity, format "C ^op") : cat_scope.
@@ -158,6 +157,10 @@ Defined.
 Notation "X [-->] Y" := (@FunctorSetoid X Y)
   (at level 55) : cat_scope.
 
+Definition eqSetoid X := [ X | ==: @eq X ].
+Notation "[ 'eqS' X ]" := (@eqSetoid X)
+  (at level 0, format "[ 'eqS'  X ]") : cat_scope.
+
 Program Definition funcSetoid X Y :=
   [ X -> Y | ==: fun f g => forall x, f x = g x ].
 Next Obligation.
@@ -165,18 +168,14 @@ Next Obligation.
 Defined.
 
 Program Definition TypeCat :=
-  [ hom A B => funcSetoid A B, comp A B C f g => fun x => g (f x),
-    id A => fun x => x ].
-Next Obligation.
-  intros f f0 E g g0 E0 x. now rewrite E, E0.
-Defined.
+  [ hom (A : [eqS Type]) B => funcSetoid A B, comp A B C f g => fun x => g (f x),
+    id A B H => _ ].
+Next Obligation. intros f f0 E g g0 E0 x. now rewrite E, E0. Defined.
+Next Obligation. simpl in *. case H. refine (fun a => a). Defined.
 
 Program Definition Functor_comp {X Y Z : Category}
   : Dymap (X --> Y) (Y --> Z) (X --> Z) := dmap F G =>
   [ obj A => G (F A), hom A B f => G :o (F :o f) ].
-Next Obligation.
-  intros f f0 E. now rewrite E.
-Defined.
 Next Obligation.
   split.
   - intros A B C f g. simpl. now rewrite !compFC.
@@ -191,10 +190,12 @@ Notation "G :o: F" := (@Functor_comp _ _ _ F G)
   (at level 54, right associativity) : cat_scope.
 
 Program Canonical Structure CAT :=
-  [ hom X Y => X [-->] Y, comp X Y Z F G => G :o: F,
-    id X => [ obj A => A, hom A B f => f ] ].
-Next Obligation. apply Functor_comp_obligation_3. Defined.
-Check CAT_obligation_4.
+  [ hom (X : [eqS Category]) Y => X [-->] Y, comp X Y Z F G => G :o: F,
+    id X Y H => _ ].
+Next Obligation.
+  simpl in *. destruct H. refine [ obj A => A, hom A B f => f ].
+  split; now intros A. Unshelve. now intros f f0 E.
+Defined.
 
 Class IsFaithful `(F : X --> Y) := {
   faith : forall A B (f g : A ~> B), F :o f == F :o g -> f == g

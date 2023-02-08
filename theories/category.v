@@ -135,7 +135,7 @@ Program Canonical Structure CAT :=
     id X => [ obj A => A, hom A B (f : A ~> B) => f ] ].
 Next Obligation.
   split; intuition; simpl.
-  - destruct f, g, h. injection.   rewrite compFC.
+  - destruct f, g, h. apply functional_extentionality_dep. injection.   rewrite compFC.
 Defined.
 
 Class IsFaithful `(F : X --> Y) := {
