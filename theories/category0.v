@@ -121,7 +121,7 @@ Class IsFunctor (X Y : Category) (fobj : X -> Y)
 }.
 
 Structure Functor (X Y : Category) := {
-  funobj :> X -> Y;
+  funobj :> Map X Y;
   funhom : forall A B, Map (A ~> B) (funobj A ~> funobj B);
   funprf :> IsFunctor funhom
 }.
@@ -134,7 +134,7 @@ Notation "[ 'obj:' F , 'hom:' Ff ]" :=
   (@Build_Functor _ _ F Ff _)
   (at level 0, F, Ff at level 99, no associativity) : cat_scope.
 Notation "[ 'obj' A => FA , 'hom' B C f => Ff ]" :=
-  [ obj: fun A => FA , hom: fun B C => map f => Ff ]
+  [ obj: map A => FA , hom: fun B C => map f => Ff ]
   (at level 0, A binder, B binder, C binder, f binder,
   FA, Ff at level 99, no associativity)
   : cat_scope.
@@ -194,7 +194,7 @@ Program Canonical Structure CAT :=
     id X Y H => _ ].
 Next Obligation.
   simpl in *. destruct H. refine [ obj A => A, hom A B f => f ].
-  split; now intros A. Unshelve. now intros f f0 E.
+  split; now intros A. Unshelve. all:now intros f f0 E.
 Defined.
 
 Class IsFaithful `(F : X --> Y) := {
@@ -239,7 +239,6 @@ Defined.
 Notation "F [==>] G" := (@NattransSetoid _ _ F G)
   (at level 55, right associativity) : cat_scope.
 
-
 Program Definition Nattrans_vcomp {X Y} {F G H : X --> Y}
   : Dymap (F ==> G) (G ==> H) (F ==> H) := dmap a b =>
   [ nt A => (b A) o (a A) ].
@@ -255,7 +254,12 @@ Notation "b |o| a" := (@Nattrans_vcomp _ _ _ _ _ a b)
 
 Program Canonical Structure FunctorCat (X Y : Category) :=
   [ hom (F : X --> Y) G => Nattrans F G, comp F G H a b => b |o| a,
-    id F => [ nt A => 1_(F A) ] ].
+    id A B F => _ ].
+Next Obligation.
+  rename F into H. rename A into F. rename B into G.
+  simpl in *. refine [ nt A => 1_[G A, F A] ].
+  split. intros A B f. pose (H _ _ f). case h.
+
 Next Obligation. apply Nattrans_vcomp_obligation_2. Defined.
 Next Obligation. split; intros. now rewrite compf1, comp1f. Defined.
 Next Obligation.

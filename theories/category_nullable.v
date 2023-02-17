@@ -14,17 +14,8 @@ Declare Scope cat_scope.
 Open Scope setoid_scope.
 Open Scope cat_scope.
 
-Ltac mapequiv := now intros x x0 E; rewrite E.
-Ltac dmapequiv := now intros x x0 E y y0 E0; rewrite E, E0.
-
-Obligation Tactic :=
-  try (now intros x); intros; try (now mapequiv); try (now dmapequiv).
-  (* (try mapequiv);
-  (try now (intros x x0 E y y0 E0; rewrite E, E0));
-  (try now intros x); (try now split; intros x); intros; (try apply \ISE). *)
-
 Class IsCategory {obj hom : Setoid} (dom cod : Map hom obj)
-  (comp : Binop hom) (id : Map obj hom) (actual : {ens hom}) :=
+  (comp : Binop hom) (id : Dymap obj obj hom) (actual : {ens hom}) :=
 {
   comp_dom : forall f g, dom (comp f g) == dom f;
   comp_cod : forall f g, cod (comp f g) == cod g;
@@ -32,11 +23,11 @@ Class IsCategory {obj hom : Setoid} (dom cod : Map hom obj)
     comp (comp f g) h == comp f (comp g h);
   comp_actual : forall f g,
     actual (comp f g) == (actual f /\ actual g /\ cod f == dom g);
-  id_dom : forall A, dom (id A) == A;
-  id_cod : forall A, cod (id A) == A;
-  comp_idr : forall f, comp (id (dom f)) f == f;
-  comp_idl : forall f, comp f (id (cod f)) == f;
-  id_actual : forall A, actual (id A)
+  id_dom : forall A B, dom (id A B) == A;
+  id_cod : forall A B, cod (id A B) == B;
+  comp_idr : forall f, comp (id (dom f) (dom f)) f == f;
+  comp_idl : forall f, comp f (id (cod f) (cod f)) == f;
+  id_actual : forall A B, (A == B) == actual (id A B)
 }.
 
 Structure Category := {
@@ -45,7 +36,7 @@ Structure Category := {
   catdom : Map cathom catobj;
   catcod : Map cathom catobj;
   homcomp : Binop cathom;
-  catid : Map catobj cathom;
+  catid : Dymap catobj catobj cathom;
   actual : {ens cathom};
 
   catprf :> IsCategory catdom catcod homcomp catid actual
@@ -57,9 +48,9 @@ Arguments actual {_}.
 Notation "[ 'dom:' D , 'cod:' C , 'o:' P , '1:' J , 'act:' A ]"
   := (@Build_Category _ _ D C P J A _)
   (at level 0, D, C, P, J, A at level 99) : cat_scope.
-Notation "[ 'dom' F => A , 'cod' G => B , 'comp' f g => P , 'id' D => Q , 'act' E => R ]"
-  := [ dom: map F => A, cod: map G => B, o: dmap f g => P, 1: map D => Q, act: [ E | R ] ]
-  (at level 0, F binder, G binder, f binder, g binder, D binder, E binder,
+Notation "[ 'dom' F => A , 'cod' G => B , 'comp' f g => P , 'id' D C => Q , 'act' E => R ]"
+  := [ dom: map F => A, cod: map G => B, o: dmap f g => P, 1: dmap D C => Q, act: [ E | R ] ]
+  (at level 0, F binder, G binder, f binder, g binder, D binder, C binder, E binder,
   A, B, P, Q, R at level 99) : cat_scope.
 Notation "'dom' f" := (@catdom _ f)
   (at level 60, right associativity) : cat_scope.
@@ -67,7 +58,9 @@ Notation "'cod' f" := (@catcod _ f)
   (at level 60, right associativity) : cat_scope.
 Notation "g 'o' f" := (@homcomp _ f g)
   (at level 60, right associativity) : cat_scope.
-Notation "1_ A" := (@catid _ A)
+Notation "1_{ A , B }" := (@catid _ A B)
+  (at level 0, right associativity, format "1_{ A ,  B }") : cat_scope.
+Notation "1_ A" := 1_{A, A}
   (at level 0, right associativity, format "1_ A") : cat_scope.
 
 Program Definition homDC {X : Category} :=
@@ -90,9 +83,6 @@ Next Obligation.
   - now rewrite comp_cod.
   - rewrite comp_actual. intuition. now rewrite H0.
 Defined.
-Next Obligation.
-  intros f f0 E g g0 E0. simpeq_all. now rewrite E, E0.
-Defined.
 Notation "g '[o]' f" := (@homDC_comp _ _ _ _ f g)
   (at level 60, right associativity) : cat_scope.
 
@@ -100,7 +90,7 @@ Program Definition idDC {X : Category} (A : X) : A ~> A
   := $[1_A, _].
 Next Obligation.
   simpl. split; try split;
-  [apply id_dom | apply id_cod | apply id_actual].
+  [apply id_dom | apply id_cod | now apply id_actual].
 Defined.
 Notation "1_[ A ]" := (@idDC _ A)
   (at level 0, format "1_[ A ]") : cat_scope.
@@ -111,13 +101,13 @@ Section CatTheory.
 
   Lemma comp1F A B (F : A ~> B) : 1_[B] [o] F == F.
   Proof.
-    case F as [f [H [H0 H1]]]. simpeq.
+    case F as [f [H [H0 H1]]]. simpl.
     now rewrite <-H0, comp_idl.
   Qed.
 
   Lemma compF1 A B (F : A ~> B) : F [o] 1_[A] == F.
   Proof.
-    case F as [f [H H0]]. simpeq.
+    case F as [f [H H0]]. simpl.
     now rewrite <-H, comp_idr.
   Qed.
 
@@ -150,7 +140,7 @@ Notation "A === B" := (A == B in @IsomorphSetoid _)
 
 Program Definition OppCat (X : Category) :=
   [ dom (f : cathom X) => cod f, cod f => dom f,
-    comp f g => f o g, id A => 1_A, act f => actual f ].
+    comp f g => f o g, id A B => 1_{B, A}, act f => actual f ].
 Next Obligation.
   split; intuition; simpl.
   - apply comp_cod.
@@ -161,7 +151,7 @@ Next Obligation.
   - apply id_dom.
   - apply comp_idl.
   - apply comp_idr.
-  - apply id_actual.
+  - now rewrite <-id_actual.
 Defined.
 Notation "C ^op" := (@OppCat C)
   (at level 40, left associativity, format "C ^op") : cat_scope.
@@ -171,9 +161,10 @@ Class IsFunctor (X Y : Category) (fobj : X -> Y)
 {
   compF_dom : forall f, dom (fhom f) == fobj (dom f);
   compF_cod : forall f, cod (fhom f) == fobj (cod f);
-  compF_morph : forall f g H H0,
-    fhom (g o[by H] f) == (fhom g) o[by H0] (fhom f);
-  idF_morph : forall A, fhom 1_A == 1_(fobj A)
+  compF_morph : forall f g,
+    fhom (g o f) == (fhom g) o (fhom f);
+  idF_morph : forall A B, fhom 1_{A, B} == 1_{fobj A, fobj B};
+  actualF : forall f, actual f == actual (fhom f)
 }.
 
 Structure Functor (X Y : Category) := {
@@ -207,12 +198,13 @@ Notation "X [-->] Y" := (@FunctorSetoid X Y)
 Program Definition funhomDC `(F : X --> Y) (A B : X)
   : Map (A ~> B) (F A ~> F B) := map f => $[F :o f, _].
 Next Obligation.
-  destruct F as [Fo Ff H]. destruct f as [f [H0 H1]].
-  split; simpl; [rewrite compF_dom | rewrite compF_cod];
-  now apply map_equal.
+  destruct F as [Fo Ff H]. destruct f as [f [H0 [H1 H2]]].
+  split; try split; simpl; [rewrite compF_dom |
+  rewrite compF_cod | now rewrite <-actualF];
+ now apply map_equal.
 Defined.
 Next Obligation.
-  intros f f0 E. simpeq_all. now apply map_equal.
+  intros f f0 E. simpl. now apply map_equal.
 Defined.
 Notation "F :[o] f" := (@funhomDC _ _ F _ _ f)
   (at level 60, right associativity) : cat_scope.
@@ -222,7 +214,7 @@ Section FunctorTheory.
   Implicit Types (A B C : X).
 
   Lemma compFM A B C (f : A ~> B) (g : B ~> C) :
-    F :[o] (g o f) == (F :[o] g) o F :[o] f.
+    F :[o] (g [o] f) == (F :[o] g) [o] F :[o] f.
   Proof. apply compF_morph. Qed.
 
   Lemma idFM A : F :[o] 1_[A] == 1_[F A].
@@ -233,10 +225,40 @@ Definition eqSetoid X := [ X | ==: @eq X ].
 Notation "[ 'eqS' X ]" := (@eqSetoid X)
   (at level 0, format "[ 'eqS'  X ]") : cat_scope.
 
-Structure Carto {X} (F : X -> X -> Setoid) := {
+Inductive CartoFun {X} (F : X -> X -> Setoid) (D C : X) :=
+| actfun : F D C -> CartoFun F D C
+| nullfun : CartoFun F D C.
+
+Program Canonical Structure CartoFunSetoid
+  {X} (F : X -> X -> Setoid) (D C : X) :=
+  [ ==: (c : CartoFun F D C) (c0 : CartoFun F D C) => match c, c0 with
+    | actfun f, actfun f0 => f == f0
+    | nullfun _ _ _, nullfun _ _ _ => True
+    | _, _ => False
+    end ].
+Next Obligation.
+  split; compute.
+  - intros x. case x; intuition.
+  - intros x y. case x, y; intuition.
+  - intros x y z. case x, y, z; intuition. now rewrite H.
+Defined.
+
+Program Definition CartoFun_comp `{F : X -> X -> Setoid} (A B C : X)
+  (Fcomp : forall {A B C}, Dymap (F A B) (F B C) (F A C))
+  : Dymap (CartoFunSetoid F A B) (CartoFunSetoid F B C) (CartoFunSetoid F A C)
+  := dmap f g => match f, g with
+    | actfun f0, actfun g0 => actfun (Fcomp f0 g0)
+    | _, _ => nullfun _ _ _
+    end.
+Next Obligation.
+  intros f g. destruct f, g; compute; intuition.
+  destruct x, y; intuition. now rewrite H, H0.
+Defined.
+
+Structure Carto `(F : X -> X -> Setoid) := {
   cdom : [eqS X];
   ccod : [eqS X];
-  cfun :> F cdom ccod
+  cfun :> CartoFun F cdom ccod
 }.
 
 Inductive cfun_eq `{F : X -> X -> Setoid}
@@ -247,9 +269,12 @@ Program Canonical Structure CartoSetoid `(F : X -> X -> Setoid) :=
   [ ==: (f : Carto F) G => @cfun_eq _ _ (cdom f) (ccod f) (cfun f) _ _ G ].
 Next Obligation.
   split; try now intros [f]; try now intros [g] [H].
-  intros [f] [g] [h] [H0 H1] [H2 H3]. split. simpl in *.
-  now rewrite H1, H3.
+  intros [f] [g] [h] [H0 H1] [H2 H3]. split. now rewrite H1.
 Defined.
+
+Program Definition Carto_comp `(F : X -> X -> Setoid)
+  : Binop (CartoSetoid F)
+  := dmap f g => 
 
 (* Type Category *)
 
@@ -267,6 +292,8 @@ Proof.
 Defined.
 
 Program Definition TypeCat :=
+  [ dom F => cdom F, cod F => ccod F,
+    comp f g => Build_Carto (funcS_comp (cfun f) (cfun g) )]
   [ dom: map F => cdom F, cod: map F => ccod F,
     o: map p => let (f,g,H) := p in Build_Carto (funcS_comp (cfun f) (cfun g) H),
     1: map X => (@Build_Carto _ _ X X (fun x => x)) ].
