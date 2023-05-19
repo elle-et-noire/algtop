@@ -1,4 +1,3 @@
 -R theories/ algtop
 
 theories/setoid.v
-theories/category.v

@@ -30,6 +30,7 @@ Ltac dmapequiv :=
   let E0 := fresh "E" in
   now intros x x0 E y y0 E0; simpl; rewrite E, E0.
 
+#[global, export]
 Obligation Tactic :=
   (try now intros x); (try now split; intros x); intros;
   try (now mapequiv); try (now dmapequiv).
@@ -132,7 +133,10 @@ Proof. reflexivity. Qed.
 Program Definition InducedSetoid {X} {Y : Setoid} (f : X -> Y) :=
   [ ==: x y => f x == f y ].
 Next Obligation.
-  split; intuition. intros x y z Exy Eyz. now rewrite Exy.
+  split.
+  - now intros x.
+  - now intros x y.
+  - intros x y z Exy Eyz. now rewrite Exy.
 Defined.
 
 #[projections(primitive=no)]
@@ -323,8 +327,8 @@ Class Surjective {A B : Setoid} (f : A -> B) := {
 Arguments surj {_} {_} _ {_}.
 
 Class Bijective {A B : Setoid} (f : A -> B) := {
-  bij_inj :> Injective f;
-  bij_surj :> Surjective f
+  #[global] bij_inj :: Injective f;
+  #[global] bij_surj :: Surjective f
 }.
 #[global] Existing Instances bij_inj bij_surj.
 
@@ -435,8 +439,8 @@ Class RIdentical {X : Setoid} (op : X -> X -> X) e := {
 }.
 
 Class Identical {X : Setoid} (op : X -> X -> X) e := {
-  id_identl :> LIdentical op e;
-  id_identr :> RIdentical op e
+  #[global] id_identl :: LIdentical op e;
+  #[global] id_identr :: RIdentical op e
 }.
 #[global] Existing Instances id_identl id_identr.
 
