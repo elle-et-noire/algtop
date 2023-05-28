@@ -13,12 +13,10 @@ Declare Scope cat_scope.
 Open Scope setoid_scope.
 Open Scope cat_scope.
 
-Ltac mapequiv := now intros x x0 E; rewrite E.
-Ltac dmapequiv := now intros x x0 E y y0 E0; rewrite E, E0.
-
+#[export]
 Obligation Tactic :=
   (try now intros x); (try now split; intros x); intros;
-  try (now mapequiv); try (now dmapequiv); (try apply \ISE).
+  try (now mapequiv); try (now dmapequiv).
 
 Class IsCategory (obj : Type) (hom : obj -> obj -> Setoid)
   (comp : forall {A B C}, Dymap (hom A B) (hom B C) (hom A C))
@@ -217,8 +215,14 @@ Definition nt_eq {X Y} (F G : X --> Y) (a b : F ==> G) :=
 Program Canonical Structure NattransSetoid {X Y} (F G : X --> Y) :=
   [ _ | ==: @nt_eq _ _ F G ].
 Next Obligation.
+  intros F F0 E G G0 E0 A B f. simpl in *.
+  pose (E _ _ f) as H.
+  pose (E0 _ _ (F0 :o f)) as H0. destruct H. destruct H0.
+  apply hom_eqref. rewrite <-H0. apply map_equal, H.
+Defined.
+Next Obligation.
   split; try now intros a. intros a b c H H0 A.
-  simpeq_all. now rewrite H.
+  now rewrite (H A), (H0 A).
 Defined.
 Notation "F [==>] G" := (@NattransSetoid _ _ F G)
   (at level 55, right associativity) : cat_scope.
@@ -230,8 +234,8 @@ Next Obligation.
   split; intros. now rewrite <-compA, ntcomm, compA, ntcomm, compA.
 Defined.
 Next Obligation.
-  intros a a0 E b b0 E0 A. simpeq_all.
-  now rewrite E, E0.
+  intros a a0 E b b0 E0 A. simpl in *.
+  now rewrite (E A), (E0 A).
 Defined.
 Notation "b |o| a" := (@Nattrans_vcomp _ _ _ _ _ a b)
   (at level 53, right associativity) : cat_scope.
@@ -240,11 +244,14 @@ Program Canonical Structure FunctorCat (X Y : Category) :=
   [ comp (F : X --> Y) G H (a : F ==> G) (b : G ==> H)
     => b |o| a, id F => _ ].
 Next Obligation.
+  intros a a0 E b b0 E0. now rewrite E, E0.
+Defined.
+Next Obligation.
   refine [ nt A => 1_(F A) ]. split.
   intros A B f. now rewrite compf1, comp1f.
 Defined.
 Next Obligation.
-  split; intuition; simpeq; intuition.
+  split; intuition; simpl in *; unfold nt_eq; simpl; intuition.
   - now rewrite compA.
   - now rewrite compf1.
   - now rewrite comp1f.
@@ -252,6 +259,12 @@ Defined.
 Notation "[ X , Y ]" := (@FunctorCat X Y)
   (at level 0, X, Y at level 99) : cat_scope.
 
+Program Definition EqFunctorNattrans (X Y : Category) (F G : X --> Y)
+  (H : F == G) : F ==> G := [ nt A => _ ].
+Next Obligation.
+  case H.
+
+(* 
 Lemma natiso_cmpiso X Y (F G : X --> Y) (a : F ==> G) :
   DependentFunctionalChoice ->
   IsIsomorphism a == forall A, IsIsomorphism (a A).
@@ -268,7 +281,7 @@ Proof.
       (proj1 (H0 B)), comp1f. }
     exists (Build_Nattrans H1). split; intros A; simpl in *;
     apply (proj1 (H0 A)) || apply (proj2 (H0 A)).
-Qed.
+Qed. *)
 
 Class IsEquivCat `(F : X --> Y) (G : Y --> X) (eta : 1_X ==> G :o: F)
   (xi : F :o: G ==> 1_Y) :=

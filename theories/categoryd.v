@@ -57,11 +57,11 @@ Class IsCategory {obj hom : Setoid} {dom cod : Map hom obj}
 
 Structure Category := {
   catobj :> Setoid;
-  #[canonical=no] cathom : Setoid;
-  #[canonical=no] catdom : Map cathom catobj;
-  #[canonical=no] catcod : Map cathom catobj;
-  #[canonical=no] homcomp : Map [o catdom, catcod] cathom;
-  #[canonical=no] catid : Map catobj cathom;
+  cathom : Setoid;
+  catdom : Map cathom catobj;
+  catcod : Map cathom catobj;
+  homcomp : Map [o catdom, catcod] cathom;
+  catid : Map catobj cathom;
 
   catprf :> IsCategory homcomp catid
 }.
@@ -81,106 +81,74 @@ Notation "'cod' f" := (@catcod _ f)
 Notation "g o[ 'by' H ] f" := (@homcomp _ $[g, f | H])
   (at level 60, H at level 99, right associativity,
   format "g  o[ 'by'  H ]  f") : cat_scope.
-Notation "g o[] f" := (g o[by _] f)
-  (at level 60, right associativity, format "g  o[]  f") : cat_scope.
+(* Notation "g o[] f" := (g o[by _] f)
+  (at level 60, right associativity, format "g  o[]  f") : cat_scope. *)
 Notation "1_ A" := (@catid _ A)
   (at level 0, right associativity, format "1_ A") : cat_scope.
 
-Section uouo.
-Variables obj hom : Setoid.
-Variables Dom Cod : Map hom obj.
-Check [o Dom, Cod].
-Variables X : Category.
-Variables f g : cathom X.
-Variables H : cod f == dom g.
-Check (g o[by H] f).
-End uouo.
+Definition IsIsopair {X : Category} (f g : cathom X) H H0 :=
+  g o[by H] f == 1_(dom f) /\ f o[by H0] g == 1_(dom g).
 
-Program Definition homDC {X : Category} :=
-  dmap (A : X) (B : X) => [ f | dom f == A /\ cod f == B ].
-Next Obligation.
-  intros f f0 E. split; intros [E0 E1]; split; now rewrite2 E.
-Defined.
-Next Obligation.
-  intros A A0 E B B0 E0 f f0 E1. split; intros [H H0]; split;
-  rewrite2 E1; try (now rewrite H); now rewrite H0.
-Defined.
-Notation "A ~> B" := (@homDC _ A B)
-  (at level 90, no associativity) : cat_scope.
-
-Program Definition homDC_comp {X : Category} {A B C : X}
-  : Dymap (A ~> B) (B ~> C) (A ~> C)
-  := dmap f g => $[g o[by _] f, _].
-Next Obligation.
-  destruct f as [f [H H0]]. destruct g as [g [H1 H2]].
-  simpl. now rewrite H0.
-Defined.
-Next Obligation.
-  destruct f as [f [H H0]]. destruct g as [g [H1 H2]].
-  split; simpl in *; now (rewrite comp_dom || rewrite comp_cod).
-Defined.
-Next Obligation.
-  intros f f0 E g g0 E0. simpl. apply map_equal. split; now simpl.
-Defined.
-Notation "g 'o' f" := (@homDC_comp _ _ _ _ f g)
-  (at level 60, right associativity) : cat_scope.
-
-Program Definition idDC {X : Category} (A : X) : A ~> A
-  := $[1_A, _].
-Next Obligation. split; now (rewrite id_dom || rewrite id_cod). Defined.
-Notation "1_[ A ]" := (@idDC _ A)
-  (at level 0, format "1_[ A ]") : cat_scope.
-
-Program Definition hom_homDC `(f : cathom X) : dom f ~> cod f
-  := $[f, _].
-
-Section CatTheory.
-  Context {X : Category}.
-  Implicit Types (A B C D : X) (f g : cathom X).
-
-  Lemma compeq f g H H0 : g o[by H] f == g o[by H0] f.
-  Proof. apply map_equal. now split. Qed.
-
-  Lemma comp1fH f H : 1_(cod f) o[by H] f == f.
-  Proof. apply comp_idl. Qed.
-
-  Lemma comp1F A B (F : A ~> B) : 1_[B] o F == F.
-  Proof.
-    case F as [f [H H0]]. simpl.
-    assert (cod f == dom 1_(cod f)) by now rewrite id_dom.
-    rewrite <-(comp_idl H1) at 3. apply map_equal.
-    split; [reflexivity | now apply map_equal].
-  Qed.
-
-  Lemma compF1 A B (F : A ~> B) : F o 1_[A] == F.
-  Proof.
-    case F as [f [H H0]]. simpl.
-    assert (cod 1_(dom f) == dom f) by now rewrite id_cod.
-    rewrite <-(comp_idr H1) at 6. apply map_equal.
-    split; [now apply map_equal | reflexivity].
-  Qed.
-
-  Lemma compA A B C D (F : A ~> B) (G : B ~> C) (H : C ~> D)
-    : H o G o F == (H o G) o F.
-  Proof. apply comp_assoc. Qed.
-End CatTheory.
-
-Definition IsIsopair {X : Category} {A B : X} (f : A ~> B) (g : B ~> A) :=
-  g o f == 1_[A] /\ f o g == 1_[B].
+Definition IsIsomorphism {X : Category} (f : cathom X) :=
+  exists g H H0, @IsIsopair X f g H H0.
 
 Definition IsIsomorphic (X : Category) (A B : X) :=
-  exists (f : A ~> B) (g : B ~> A), IsIsopair f g.
+  exists (f : cathom X), IsIsomorphism f /\ dom f == A /\ cod f == B.
 
 Program Definition IsomorphSetoid (X : Category) :=
   [ X | ==: @IsIsomorphic X ].
 Next Obligation.
   split; intros A.
-  - exists 1_[A], 1_[A]. split; now rewrite comp1F.
-  - intros B [f [g [H H0]]]. exists g, f. now split.
-  - intros B C [f [g [H H0]]] [f0 [g0 [H1 H2]]].
-    exists (f0 o f), (g o g0). split.
-  + now rewrite <-compA, (compA f), H1, comp1F.
-  + now rewrite <-compA, (compA g0), H0, comp1F.
+  - exists 1_A. split; try split.
+  + exists 1_A. assert (cod 1_A == dom 1_A).
+    { now rewrite id_cod, id_dom. } exists H, H.
+    split; now rewrite comp_idr, id_dom.
+  + apply id_dom.
+  + apply id_cod.
+  - intros B [f [[g [H [H0 [H1]]]] [df cf]]].
+    exists g. split; try split.
+  + exists f, H0, H. now split.
+  + now rewrite <-H.
+  + now rewrite H0.
+  - intros B C [f [[g [H [H0 [H1]]]] [df cf]]] [f0 [[g0 [H3 [H4 [H5]]]] [df0 cf0]]].
+    assert (cod f == dom f0) by now rewrite df0.
+    exists (f0 o[by H7] f). split; try split.
+  + assert (cod g0 == dom g) by now rewrite H4, df0, <-H.
+    exists (g o[by H8] g0).
+    assert (cod f0 o[by H7] f == dom g o[by H8] g0).
+    { now rewrite comp_cod, comp_dom. }
+    assert (cod g o[by H8] g0 == dom f0 o[by H7] f).
+    { now rewrite comp_cod, comp_dom. }
+    exists H9, H10. split.
+  * assert (forall H00 H01 H02 H03 H04, (g o[by H00] g0) o[by H02] f0 o[by H01] f
+    == g o[by H04] 1_(dom f0) o[by H03] f).
+    { intros. rewrite <-comp_assoc. apply map_equal. split.
+      rewrite comp_assoc. apply map_equal. split. reflexivity.
+      rewrite <-H5. now apply map_equal. reflexivity. }
+    rewrite H11.
+    assert (forall H00 H01 H02, g o[by H01] 1_(dom f0) o[by H00] f == g o[by H02] f).
+    { intros. apply map_equal. split. now rewrite comp_idl. reflexivity. }
+    rewrite H12, comp_dom, <-H1. now apply map_equal.
+  * rewrite comp_dom, <-H6, comp_assoc. apply map_equal. split.
+    reflexivity. rewrite <-comp_assoc.
+    assert (forall H00, f0 o[by H00] 1_(dom f0) == f0).
+    { intros. apply comp_idr. }
+    rewrite <-H11 at 2. apply map_equal. split.
+    rewrite <-H7, H, <-H2. apply map_equal. now split.
+    reflexivity.
+  + now rewrite comp_dom.
+  + now rewrite comp_cod.
+  Unshelve.
+  * now rewrite comp_cod.
+  * now rewrite comp_cod.
+  * now rewrite comp_dom.
+  * now rewrite id_dom.
+  * now rewrite comp_cod, id_cod, <-H7.
+  * now rewrite comp_dom, H0.
+  * now rewrite comp_dom.
+  * now idtac.
+  * now rewrite comp_cod.
+  * now rewrite id_cod.
 Defined.
 Notation "A === B" := (A == B in @IsomorphSetoid _)
   (at level 70, no associativity) : cat_scope.
@@ -242,31 +210,6 @@ Next Obligation.
 Defined.
 Notation "X [-->] Y" := (@FunctorSetoid X Y)
   (at level 55) : cat_scope.
-
-Program Definition funhomDC `(F : X --> Y) (A B : X)
-  : Map (A ~> B) (F A ~> F B) := map f => $[F :o f, _].
-Next Obligation.
-  destruct F as [Fo Ff H]. destruct f as [f [H0 H1]].
-  split; simpl; [rewrite compF_dom | rewrite compF_cod];
-  now apply map_equal.
-Defined.
-Next Obligation.
-  intros f f0 E. simpl. now apply map_equal.
-Defined.
-Notation "F :[o] f" := (@funhomDC _ _ F _ _ f)
-  (at level 60, right associativity) : cat_scope.
-
-Section FunctorTheory.
-  Context {X Y : Category} {F : X --> Y}.
-  Implicit Types (A B C : X).
-
-  Lemma compFM A B C (f : A ~> B) (g : B ~> C) :
-    F :[o] (g o f) == (F :[o] g) o F :[o] f.
-  Proof. apply compF_morph. Qed.
-
-  Lemma idFM A : F :[o] 1_[A] == 1_[F A].
-  Proof. apply idF_morph. Qed.
-End FunctorTheory.
 
 Definition eqSetoid X := [ X | ==: @eq X ].
 Notation "[ 'eqS' X ]" := (@eqSetoid X)
@@ -348,6 +291,8 @@ Defined.
 Next Obligation.
   intros F F0 E G G0 E0 f g E1. simpl in *. apply E0, E, E1.
 Defined.
+Notation "G :o: F" := (@Functor_comp _ _ _ F G)
+  (at level 60, right associativity) : cat_scope.
 
 Definition FunctorC_comp `(f : X [-->] Y) `(g : Z [-->] W)
   : Y = Z -> X [-->] W.
@@ -356,7 +301,7 @@ Proof.
   refine (Functor_comp f g).
 Defined.
 
-Program Definition Functor_id (X : Category)
+Program Definition Functor_id (X : Category) : X --> X
   := [ obj A => A, hom f => f ].
 Next Obligation.
   split; intros f; simpl; try now idtac.
@@ -395,12 +340,13 @@ Next Obligation.
 Defined.
 
 Class IsFaithful `(F : X --> Y) := {
-  faith : forall A B (f g : A ~> B), F :o f == F :o g -> f == g
+  faith : forall f g, dom f == dom g /\ cod f == cod g ->
+    F :o f == F :o g -> f == g
 }.
 
 Class IsFull `(F : X --> Y) := {
-  full : forall A B (f : F A ~> F B),
-    exists (g : A ~> B), F :o g == f
+  full : forall f, (exists A B, dom f == F A /\ cod f == F B) ->
+    exists g, F :o g == f
 }.
 
 Class IsNattrans {X Y} (F G : X [-->] Y) (c : Map X (cathom Y)) := {
@@ -466,7 +412,7 @@ Proof. reflexivity. Qed.
 Program Definition Nattrans_vcomp {X Y : Category}
   : Map (Composables (@ntdomMap X Y) (@ntcodMap X Y)) (Nattrans X Y) :=
   map c => let (a,b,H) := c in 
-  [ ntdom: (ntdom a), ntcod: (ntcod b), nt A => (b A) o[] (a A) ].
+  [ ntdom: (ntdom a), ntcod: (ntcod b), nt A => (b A) o[by _] (a A) ].
 Next Obligation.
   pose (H 1_A 1_A). simpl in e. assert (1_A == 1_A) by reflexivity.
   apply e in H0.
@@ -527,7 +473,7 @@ Next Obligation.
 Defined.
 
 Program Canonical Structure FunctorCat (X Y : Category) :=
-  [ dom (a : Nattrans X Y) => ntdom a, cod a => ntcod a,
+  [ dom (a : NattransSetoid X Y) => ntdom a, cod a => ntcod a,
     comp p => Nattrans_vcomp p,
     id F => Nattrans_id F ].
 Next Obligation.
@@ -566,32 +512,114 @@ Defined.
 Notation "[ X , Y ]" := (@FunctorCat X Y)
   (at level 0, X, Y at level 99) : cat_scope.
 
-Lemma natiso_cmpiso X Y (F G : X --> Y) (a : F ==> G) :
-  DependentFunctionalChoice ->
-  IsIsomorphism a == forall A, IsIsomorphism (a A).
+
+Lemma NattransLig_componentLig X Y (a b : Nattrans X Y) :
+  cod a == dom b -> forall A, cod (a A) == dom (b A).
 Proof.
-  intros DFC. unfold IsIsomorphism. split; simpeq_all.
-  - intros [g [E E0]] A. exists (g A). split;
-    (apply E || apply E0).
-  - intros H.
-    pose (DFC X (fun A => G A ~> F A) (fun A g => g o a A == 1_(F A) /\ a A o g == 1_(G A))).
-    simpl in *. destruct (e H) as [g H0].
-    assert (IsNattrans g).
-    { split. intros. now rewrite <-(compf1 (G :o f)),
-      <-(proj2 (H0 A)), (compA (g A)), <-natural, !compA,
-      (proj1 (H0 B)), comp1f. }
-    exists (Build_Nattrans H1). split; intros A; simpl in *;
-    apply (proj1 (H0 A)) || apply (proj2 (H0 A)).
+  intros H A. now rewrite nat_cod, nat_dom, (Functoreq_obj H).
 Qed.
 
-Class IsEquivCat `(F : X --> Y) (G : Y --> X) (eta : 1_X ==> G :o: F)
-  (xi : F :o: G ==> 1_Y) :=
+Lemma stdeq_refl (X : Setoid) (A : X) : A == A.
+Proof. reflexivity. Qed.
+
+Lemma NattransIso_componentIso X Y (a b : Nattrans X Y) H H0 : 
+  @IsIsopair _ a b H H0 == forall A, @IsIsopair _ (a A) (b A)
+  (NattransLig_componentLig H A) (NattransLig_componentLig H0 A).
+Proof.
+  split.
+  - intros [[H1 [H2]] [H4 [H5]]] A. split.
+  + pose (H3 A A (stdeq_refl A)). simpl in e.
+    rewrite nat_dom, <-e. now apply map_equal.
+  + pose (H6 A A (stdeq_refl A)). simpl in e.
+    rewrite nat_dom, <-e. now apply map_equal.
+  - intros H1. split; split; try split; try now simpl;
+    try now (intros A B E; rewrite E).
+  + intros A B E. simpl.
+    pose (H1 A). destruct i.
+    rewrite <-nat_dom, <-E, <-H2. now apply map_equal.
+  + intros A B E. pose (H1 B). destruct i.
+    simpl. rewrite <-nat_dom, <-H3. apply map_equal.
+    split; now rewrite E.
+Qed.
+
+Program Definition Nattrans_hcomp {X Y Z}
+  : Dymap (Nattrans X Y) (Nattrans Y Z) (Nattrans X Z)
+  := dmap a b => [ ntdom: (ntdom b) :o: (ntdom a),
+    ntcod: (ntcod b) :o: (ntcod a),
+    nt A => b ((ntcod a) A) o[by _] ((ntdom b) :o a A) ].
+Next Obligation.
+  now rewrite nat_dom, compF_cod, nat_cod.
+Defined.
+Next Obligation.
+  intros A B E. apply map_equal. split; now rewrite E.
+Defined.
+Next Obligation.
+  split.
+  - intros A. simpl. now rewrite comp_dom, compF_dom, nat_dom.
+  - intros A. simpl. now rewrite comp_cod, nat_cod.
+  - intros. simpl in *. rewrite <-comp_assoc.
+    assert (forall H00 H01 H02 H03, b (ntcod a (cod f)) o[by H01] (ntdom b :o a (cod f)) o[by H00]
+      ntdom b :o ntdom a :o f == b (ntcod a (cod f)) o[by H03] ((ntdom b) :o (ntcod a :o f)) o[by H02] ((ntdom b) :o a (dom f)))
+    as H2.
+    { intros. apply map_equal. split.  rewrite <-!compF_morph.
+      apply map_equal. rewrite natural. apply map_equal.
+      split. all: reflexivity. }
+    rewrite H2, !comp_assoc. apply map_equal. split.
+    reflexivity.
+    assert (forall f0, cod ntdom b :o f0 == dom b (cod f0)) as H1.
+    { intros. now rewrite nat_dom, compF_cod. }
+    assert (forall f0, cod b (dom f0) == dom ntcod b :o f0) as H3.
+    { intros. now rewrite nat_cod, compF_dom. }
+    pose (natural (H1 (ntcod a :o f)) (H3 (ntcod a :o f))) as e.
+    assert (forall H8, (ntcod b :o ntcod a :o f) o[by H8] b (ntcod a (dom f))
+      == (ntcod b :o ntcod a :o f) o[by H3 (ntcod a :o f)] 
+      b (dom ntcod a :o f)) as H4.
+    { intros. apply map_equal. split. now rewrite compF_dom. reflexivity. }
+    rewrite H4, <-e. apply map_equal. split.
+    reflexivity. now rewrite compF_cod.
+    Unshelve.
+    + now rewrite compF_cod, compF_dom, compF_cod, nat_dom.
+    + now rewrite comp_cod, compF_cod, nat_dom, nat_cod.
+    + now rewrite compF_cod, nat_dom.
+    + now rewrite compF_dom, nat_cod.
+    + now rewrite compF_dom, nat_cod.
+    + now rewrite compF_cod, !compF_dom, nat_cod.
+    + now rewrite comp_cod, !compF_cod, nat_dom.
+    + now rewrite compF_cod, nat_dom, compF_cod.
+    + now rewrite comp_dom, compF_cod, !compF_dom, nat_cod.
+    + now rewrite !compF_dom, nat_cod.
+    + now rewrite comp_dom, compF_cod, nat_dom, nat_cod.
+Defined.
+Next Obligation.
+  intros a a0 E b b0 E0. split; try split.
+  - intros f f0 Ef. simpl. rewrite Ef.
+    destruct E0 as [E0 [E00 E01]]. apply E0.
+    destruct E as [E]. now apply E.
+  - intros f f0 Ef. simpl.
+    destruct E0 as [E0 [E00]]. apply E00.
+    destruct E as [E1 [E2]]. now apply E2.
+  - simpl. intros A A0 EA. apply map_equal. split.
+    destruct E0 as [E0]. apply E0. now apply E.
+    destruct E0 as [E0 [E00 E01]]. apply E01.
+    destruct E as [E [E1]]. simpl in E1.
+    rewrite EA. rewrite <-(id_dom A0), <-!nat_cod.
+    now apply map_equal, H.
+Defined.
+Notation "b =o= a" := (@Nattrans_hcomp _ _ _ a b)
+  (at level 53, right associativity) : cat_scope.
+
+Class IsEquivCat `(F : X --> Y) (G : Y --> X) 
+  (eta : Nattrans X X) (xi : Nattrans Y Y) :=
 {
+  catequiv_etadom : ntdom eta == Functor_id X;
+  catequiv_etacod : cod eta == G :o: F;
+  catequiv_xidom : dom xi == F :o: G;
+  catequiv_xicod : cod xi == Functor_id Y;
   ecetaiso : IsIsomorphism eta;
   ecxiiso : IsIsomorphism xi
 }.
 
-Structure EquivCat (X Y : Category) := {
+Structure Equiv (X Y : Category) := {
   ecfwd : X --> Y;
   ecrev : Y --> X;
   eceta : 1_X ==> ecrev :o: ecfwd;
@@ -600,19 +628,7 @@ Structure EquivCat (X Y : Category) := {
 }.
 #[global] Existing Instance ecprf.
 
-Program Definition Nattrans_hcomp {X Y Z} {F G : X --> Y} {F0 G0 : Y --> Z}
-  : Dymap (F ==> G) (F0 ==> G0) (F0 :o: F ==> G0 :o: G) := dmap a b =>
-  [ nt A => b (G A) o (F0 :o a A) ].
-Next Obligation.
-  split. intros A B f. simpl. rewrite !ntcomm.
-  rewrite <-!compA. rewrite !ntcomm. rewrite compA.
-  now rewrite <-compFC, !ntcomm, compFC, compA.
-Defined.
-Next Obligation.
-  intros a a0 E b b0 E0 A. simpeq_all. now rewrite E, E0.
-Defined.
-Notation "b =o= a" := (@Nattrans_hcomp _ _ _ _ _ _ _ a b)
-  (at level 53, right associativity) : cat_scope.
+
 
 Program Definition nt1_1o1 {X : Category} : 1_X ==> 1_X :o: 1_X :=
   [ nt A => 1_A ].
