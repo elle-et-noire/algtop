@@ -403,7 +403,7 @@ Proof.
   intros E A. assert (1_A == 1_A) by reflexivity.
   pose (E 1_A 1_A H) as H0.
   assert (dom F :o 1_A == dom G :o 1_A) by now rewrite H0.
-  now rewrite !compF_dom, id_dom in H1.
+  now rewrite <-!compF_dom, id_dom in H1.
 Qed.
 
 Program Canonical Structure ntdomMap {X Y : Category}
@@ -475,6 +475,9 @@ Next Obligation.
   - simpl. intros A B E. apply map_equal. split; rewrite E;
     [now apply Ef | now apply Eg].
 Defined.
+Notation "b |o|[ 'by' H ] a" := (@Nattrans_vcomp _ _ $[b, a | H])
+  (at level 53, right associativity,
+  format "b  |o|[ 'by'  H ]  a") : cat_scope.
 
 Program Definition Nattrans_id {X Y : Category} (F : X --> Y)
   := [ ntdom: F, ntcod: F, nt (A : X) => 1_(F A)].
@@ -487,16 +490,9 @@ Next Obligation.
 Defined.
 
 Program Canonical Structure FunctorCat (X Y : Category) :=
-  [ dom (a : NattransSetoid X Y) => ntdom a, cod a => ntcod a,
-    comp p => Nattrans_vcomp p,
-    id F => Nattrans_id F ].
-Next Obligation.
-  intros [a b H] [a0 b0 H0] [Ea Eb]. split; try split; simpl.
-  - apply Ea.
-  - apply Eb.
-  - intros A B E. apply map_equal. split; rewrite E;
-    [now apply Ea | now apply Eb].
-Defined.
+  [ dom: map (a : NattransSetoid X Y) => ntdom a, cod: map a => ntcod a,
+    o: Nattrans_vcomp,
+    1: map F => Nattrans_id F ].
 Next Obligation.
   intros F G E. split; try split; try apply E.
   intros A B E0. rewrite E0. simpl.
@@ -526,6 +522,10 @@ Next Obligation.
 Defined.
 Notation "[ X , Y ]" := (@FunctorCat X Y)
   (at level 0, X, Y at level 99) : cat_scope.
+
+Lemma compNtV_assoc (X Y : Category) (a b c : Nattrans X Y)
+  H H0 H1 H2 : a |o|[by H0] b |o|[by H] c == (a |o|[by H1] b) |o|[by H2] c.
+Proof. apply comp_assoc. Qed.
 
 
 Lemma NattransLig_componentLig X Y (a b : Nattrans X Y) :
@@ -645,6 +645,75 @@ Structure EquivCat (X Y : Category) := {
 }.
 #[global] Existing Instance eqcatprf.
 
+Lemma compF_comp_assoc (X Y Z : Category) (F : X --> Y) (G : Y --> Z)
+  (f : cathom X) : G :o F :o f == (G :o: F) :o f.
+Proof. now idtac. Qed.
+
+Lemma compF_assoc (X Y Z W : Category) (F : X --> Y) (G : Y --> Z)
+  (H : Z --> W) : H :o: G :o: F == (H :o: G) :o: F.
+Proof. intros f f0 Ef. now rewrite Ef. Qed.
+
+Lemma Functor_eq (X Y : Category) (F G : X --> Y) (f : cathom X) :
+  F == G -> F :o f == G :o f.
+Proof. intros H. now apply H. Qed.
+
+Notation "g o[] f" := (@homcomp _ $[g, f | _])
+  (at level 60, right associativity,
+  format "g  o[]  f") : cat_scope.
+
+Lemma compatNtV_NtH (X Y Z : Category) (a b : Nattrans X Y)
+  (a0 b0 : Nattrans Y Z) H H0 H1 :
+  (b0 o[by H] a0) =o= (b o[by H0] a) == (b0 =o= b) o[by H1] (a0 =o= a).
+Proof.
+  split; try split.
+  - intros f g E. simpl. now rewrite !compF_comp_assoc, E.
+  - intros f g E. simpl. now rewrite !compF_comp_assoc, E.
+  - intros A B E. rewrite E. simpl. rewrite <-!comp_assoc.
+    apply map_equal. split. 2:reflexivity.
+    assert (forall H00 H01 H02 H03,
+      a0 (dom ntcod b :o 1_B) o[by H01] ntdom a0 :o b B o[by H00] a B
+      == a0 (dom ntcod b :o 1_B) o[by H03] (ntdom a0 :o b B) o[by H02] ntdom a0 :o a B)
+      as H2.
+    { intros. apply map_equal. split. 2:reflexivity. apply compF_morph. }
+    rewrite H2, !comp_assoc. apply map_equal. split. reflexivity.
+    assert (forall H00 H01, (ntdom b0 :o b B) o[by H00] a0 (dom ntcod a :o 1_B)
+      == (ntcod a0 :o b B) o[by H01] a0 (dom b B)) as H3.
+    { intros. apply map_equal. split. apply map_equal.
+      rewrite nat_dom, <-compF_dom, id_dom. simpl. apply map_equal.
+      now apply (H0 1_B 1_B). now apply Functor_eq. }
+    rewrite H3, <-natural. apply map_equal. split.
+    reflexivity. rewrite nat_cod. now simpl.
+    Unshelve.
+  + rewrite compF_morph, comp_cod, nat_dom, <-compF_cod. apply map_equal.
+    now rewrite idF_morph, id_dom, nat_cod.
+  + rewrite comp_cod, nat_cod, nat_dom. simpl. apply map_equal.
+    simpl in H. now apply H.
+  + rewrite comp_cod, nat_cod. rewrite <-(compF_dom (ntdom b0)).
+    simpl. apply map_equal. simpl in H. apply H.
+    apply map_equal. rewrite <-compF_dom, id_dom, nat_dom.
+    simpl. apply map_equal. simpl in H0. now apply H0.
+  + rewrite comp_cod, <-compF_cod, nat_dom. apply map_equal.
+    now rewrite nat_cod, <-compF_dom, id_dom.
+  + rewrite <-compF_cod, <-compF_dom. apply map_equal.
+    rewrite nat_cod, nat_dom. simpl. apply map_equal.
+    simpl in H0. now apply H0.
+  + rewrite comp_cod, <-compF_cod, nat_dom. apply map_equal.
+    now rewrite nat_cod, <-compF_dom, id_dom.
+  + rewrite <-compF_cod, nat_dom. apply map_equal.
+    now rewrite nat_cod, <-compF_dom, id_dom.
+  + rewrite comp_dom, <-compF_cod, <-compF_dom. apply map_equal.
+    rewrite nat_cod, nat_dom. simpl. simpl in H0.
+    now apply map_equal, H0.
+  + rewrite nat_cod, <-!compF_dom, id_dom, nat_dom. simpl in *.
+    now apply map_equal, H, map_equal, map_equal, H0.
+  + now rewrite comp_dom, <-compF_cod, nat_dom, nat_cod, <-compF_dom, id_dom.
+  + now rewrite <-compF_dom, nat_cod, nat_dom.
+  + now rewrite <-compF_cod, nat_dom, nat_cod.
+  Unshelve.
+  rewrite <-compF_cod, <-compF_dom. apply map_equal.
+  rewrite nat_cod, nat_dom. simpl in *. now apply map_equal, H0.
+Qed.
+
 Program Definition EquivCatSetoid :=
   [ ==: (X : Category) Y => exists (F : X --> Y) (G : Y --> X)
     (eta : Nattrans X X) (xi : Nattrans Y Y),
@@ -683,19 +752,51 @@ Next Obligation.
     destruct H2. now split.
   - intros X Y Z [F [G [eta [xi [E E0 E1 E2 [f] [g]]]]]].
     intros [F0 [G0 [eta0 [xi0 [E00 E01 E02 E03 [f0] [g0]]]]]].
-    exists (F0 :o: F), (G :o: G0), (1_G =o= eta0 =o= 1_F), (1_F0 =o= xi =o= 1_G0).
-    split.
-  + simpl. intros f1 f10 Ef1. rewrite Ef1.
-    assert (G :o ntdom eta0 :o F :o f10 == (G :o: ntdom eta0 :o: F) :o f10).
-    { now idtac. }
-    rewrite H3. simpl in E00. assert (G :o: ntdom eta0 :o: F == 1). rewrite E00. assert (ntdom eta0 == Func)
-
-  
-  - intros X. exists 1_X, 1_X, nt1_1o1, nt1o1_1.
-    split; unfold IsIsomorphism; [exists nt1o1_1 | exists nt1_1o1];
-    split; simpeq; intros A; now rewrite comp1f.
-  - intros X Y [F [G [eta [xi [[g [H H0]] [g0 [H1 H2]]]]]]].
-    exists G, F, g0, g. split; [exists xi | exists eta]; split; intuition.
-  - intros X Y Z [F [G [eta [xi H]]]] [F0 [G0 [eta0 [xi0 H0]]]].
     exists (F0 :o: F), (G :o: G0).
-    pose (1_G =o= eta0 =o= 1_F). pose (s o eta). exists s. simpl in s. pose (eta0 o eta).
+    pose (1_G =o= eta0 =o= 1_F) as eta1.
+    assert (cod eta == dom eta1) as H3.
+    { rewrite E0. simpl. intros f1 f2 Ef. rewrite Ef. rewrite !compF_comp_assoc.
+      apply Functor_eq. rewrite E00. intros f3 f4 Ef3. now rewrite Ef3. }
+    exists (eta1 |o|[by H3] eta).
+    pose (1_F0 =o= xi =o= 1_G0) as xi1.
+    assert (cod xi1 == dom xi0) as H4.
+    { rewrite E02. simpl. intros f1 f2 Ef. rewrite Ef, !compF_comp_assoc.
+      apply Functor_eq. rewrite E2. intros f3 f4 Ef3. now rewrite Ef3. }
+    exists (xi0 |o|[by H4] xi1).
+    split.
+  + simpl. intros f1 f2 Ef. pose (E f1 f2 Ef). simpl in e.
+    now rewrite e.
+  + rewrite compF_assoc, <-(compF_assoc F0), <-E01. simpl.
+    intros f1 f2 Ef. now rewrite Ef.
+  + rewrite compF_assoc, <-(compF_assoc G), <-E1. simpl.
+    intros f1 f2 Ef. now rewrite Ef.
+  + now rewrite E03.
+  + destruct H as [Ef [Ef1 [H H5]]].
+    destruct H0 as [Eg [Eg1 [H6 H7]]].
+    destruct H1 as [Ef0 [Ef01 [Hf0 Hf01]]].
+    destruct H2 as [Eg0 [Eg01 [Hg0 Hg01]]].
+    pose (1_G =o= f0 =o= 1_F) as f1.
+    assert (cod f1 == dom f) as H0.
+    { rewrite <-Ef, E0. simpl. intros f01 f02 Ef02.
+      rewrite Ef02, !compF_comp_assoc. apply Functor_eq.
+      rewrite Ef01, E00. intros f03 f04 Ef03. now rewrite Ef03. }
+    exists (_ |o|[by H0] _).
+    assert (cod eta1 |o|[by H3] eta == dom f |o|[by H0] f1) as H1.
+    { rewrite comp_dom, comp_cod. intros f01 f02 Ef02. simpl.
+      rewrite !compF_comp_assoc, Ef02. apply Functor_eq.
+      now rewrite Ef0. } 
+    assert (cod f |o|[by H0] f1 == dom eta1 |o|[by H3] eta) as H2.
+    { now rewrite comp_cod, comp_dom. }
+    exists H1, H2. split.
+  * rewrite comp_dom, E. rewrite comp_assoc.
+    assert (forall H00, f1 o[by H00] eta1 == Nattrans_id _).
+  split; try split.
+  -- intros f01 f02 Ef02. pose (E f01 f02 Ef02). now rewrite e.
+  -- intros f01 f02 Ef02.
+     assert (cod f == Functor_id X) as H8 by now rewrite Ef1.
+     pose (H8 _ _ Ef02). now rewrite e.
+  -- assert (f |o|[by H0] f1 o[by H1] eta1 |o|[by H3] eta
+      == (f |o|[by H0] f1) |o|[by H1] (eta1 |o|[by H3] eta)).
+     { reflexivity. }
+     rewrite H8.
+      rewrite compNtV_assoc.
