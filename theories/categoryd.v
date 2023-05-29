@@ -714,6 +714,29 @@ Proof.
   rewrite nat_cod, nat_dom. simpl in *. now apply map_equal, H0.
 Qed.
 
+Lemma compatNtH_compF (X Y Z : Category) (F : X --> Y) (G : Y --> Z) :
+  1_G =o= 1_F == 1_(G :o: F).
+Proof.
+  split; try split.
+  - intros f g E. now rewrite E.
+  - intros f g E. now rewrite E.
+  - simpl. intros A B E. rewrite comp_idl, <-compF_dom, id_dom, E.
+    now rewrite !idF_morph, id_dom.
+Qed.
+
+Lemma compNtV_dom (X Y Z : Category) (a : Nattrans X Y) (b : Nattrans Y Z)
+  : dom (b =o= a) == (dom b) :o: (dom a).
+Proof. intros f g E. now rewrite E. Qed.
+
+Lemma compNtV_cod (X Y Z : Category) (a : Nattrans X Y) (b : Nattrans Y Z)
+  : cod (b =o= a) == (cod b) :o: (cod a).
+Proof. intros f g E. now rewrite E. Qed.
+
+Lemma compF_idl `(F : X --> Y) : (Functor_id Y) :o: F == F.
+Proof. intros f g E. now rewrite E. Qed.
+Lemma compF_idr `(F : X --> Y) :  F :o: (Functor_id X) == F.
+Proof. intros f g E. now rewrite E. Qed.
+
 Program Definition EquivCatSetoid :=
   [ ==: (X : Category) Y => exists (F : X --> Y) (G : Y --> X)
     (eta : Nattrans X X) (xi : Nattrans Y Y),
@@ -787,16 +810,90 @@ Next Obligation.
       now rewrite Ef0. } 
     assert (cod f |o|[by H0] f1 == dom eta1 |o|[by H3] eta) as H2.
     { now rewrite comp_cod, comp_dom. }
-    exists H1, H2. split.
+    exists H1, H2.
+    assert (forall H00, f1 o[by H00] eta1 == 1_(cod eta)) as H8.
+    { intros. unfold f1, eta1. rewrite <-!compatNtV_NtH, !comp_idl, Hf0, E00.
+      now rewrite !compatNtH_compF, compF_idl, <-E0. }
+    split.
   * rewrite comp_dom, E. rewrite comp_assoc.
-    assert (forall H00, f1 o[by H00] eta1 == Nattrans_id _).
-  split; try split.
-  -- intros f01 f02 Ef02. pose (E f01 f02 Ef02). now rewrite e.
-  -- intros f01 f02 Ef02.
-     assert (cod f == Functor_id X) as H8 by now rewrite Ef1.
-     pose (H8 _ _ Ef02). now rewrite e.
-  -- assert (f |o|[by H0] f1 o[by H1] eta1 |o|[by H3] eta
-      == (f |o|[by H0] f1) |o|[by H1] (eta1 |o|[by H3] eta)).
-     { reflexivity. }
-     rewrite H8.
-      rewrite compNtV_assoc.
+    
+    (* assert (forall H00, f1 o[by H00] eta1 == 1_G =o= 1_(Functor_id Y) =o= 1_F) as H8.
+    { intros. unfold f1, eta1. now rewrite <-!compatNtV_NtH, !comp_idl, Hf0, E00. } *)
+    assert (forall H00 H01 H02 H03, (f |o|[by H0] f1 o[by H00] eta1) o[by H01] eta
+      == (f |o|[by H02] 1_(cod eta)) o[by H03] eta).
+    { intros. apply map_equal. split. reflexivity. rewrite <-comp_assoc.
+      apply map_equal. split. 2:reflexivity. apply H8. }
+    rewrite H9, <-E, <-H. apply map_equal. split. reflexivity.
+    apply comp_idr.
+  * rewrite comp_dom, comp_assoc.
+    assert (forall H00 H01 H02, (eta1 |o|[by H3] eta o[by H00] f) o[by H01] f1
+      == eta1 o[by H02] f1).
+    { intros. apply map_equal. split. reflexivity.
+      symmetry. rewrite <-comp_idr at 1. rewrite <-comp_assoc.
+      apply map_equal. split. 2:reflexivity. rewrite H5. reflexivity. }
+    rewrite H9. unfold eta1, f1. rewrite <-!compatNtV_NtH, !comp_idl, Hf01.
+    rewrite !compatNtH_compF. apply map_equal. now rewrite !compNtV_dom, !id_dom.
+  + destruct H as [Ef [Ef1 [H H5]]].
+    destruct H0 as [Eg [Eg1 [H6 H7]]].
+    destruct H1 as [Ef0 [Ef01 [Hf0 Hf01]]].
+    destruct H2 as [Eg0 [Eg01 [Hg0 Hg01]]].
+    pose (1_F0 =o= g =o= 1_G0) as g1.
+    assert (cod g0 == dom g1) as H0.
+    { rewrite Eg01, E02. simpl. intros f01 f02 Ef02.
+    rewrite Ef02, !compF_comp_assoc. apply Functor_eq.
+    rewrite <-Eg, E2. intros f03 f04 Ef03. now rewrite Ef03. }
+    exists (_ |o|[by H0] _).
+    assert (cod xi0 |o|[by H4] xi1 == dom g1 |o|[by H0] g0) as H1.
+    { now rewrite comp_dom, comp_cod.  }
+    assert (cod g1 |o|[by H0] g0 == dom xi0 |o|[by H4] xi1) as H2.
+    { rewrite comp_dom, comp_cod. intros f01 f02 Ef02. simpl.
+    rewrite !compF_comp_assoc, Ef02. apply Functor_eq. now rewrite Eg1. }
+    exists H1, H2. split.
+  * rewrite comp_dom, comp_assoc.
+    assert (forall H00 H01 H02, (g1 |o|[by H0] g0 o[by H00] xi0) o[by H01] xi1 ==
+      g1 o[by H02] xi1) as H8.
+    { intros. apply map_equal. split. reflexivity. symmetry. rewrite <-comp_idr at 1.
+      rewrite <-comp_assoc. apply map_equal. split. 2:reflexivity.
+      rewrite Hg0. reflexivity. }
+    rewrite H8. unfold g1, xi1. rewrite <-!compatNtV_NtH, !comp_idl, H6.
+    rewrite !compatNtH_compF. apply map_equal. now rewrite !compNtV_dom, !id_dom.
+  * rewrite comp_dom, <-Hg01, comp_assoc. apply map_equal. split.
+    reflexivity. symmetry. rewrite <-comp_assoc, <-comp_idr at 1. apply map_equal.
+    split. 2:reflexivity. unfold g1, xi1. rewrite <-!compatNtV_NtH, !comp_idl, H7.
+    rewrite !compatNtH_compF. apply map_equal. rewrite <-Eg, E2, compF_idl.
+    reflexivity.
+    Unshelve.
+  -- now rewrite id_cod, id_dom.
+  -- now rewrite compNtV_dom, compNtV_cod, id_dom, id_cod, Ef0.
+  -- now rewrite id_cod, id_dom.
+  -- now rewrite comp_dom.
+  -- now rewrite comp_dom.
+  -- now idtac.
+  -- now rewrite comp_cod.
+  -- intros f00 g00 E10. simpl. rewrite E10. now apply Functor_eq.
+  -- now rewrite comp_dom, id_dom.
+  -- now rewrite comp_dom.
+  -- now rewrite comp_dom.
+  -- now rewrite id_cod, <-H0.
+  -- now rewrite comp_cod.
+  -- now rewrite <-H3, H0.
+  -- now rewrite id_cod, id_dom.
+  -- now rewrite compNtV_dom, compNtV_cod, id_dom, id_cod, Ef01.
+  -- now rewrite id_cod, id_dom.
+  -- now rewrite comp_dom.
+  -- now rewrite comp_dom.
+  -- now rewrite id_cod, <-H01.
+  -- now rewrite comp_cod.
+  -- now rewrite <-H0, H4.
+  -- now rewrite id_cod, id_dom.
+  -- now rewrite compNtV_cod, compNtV_dom, id_dom, id_cod, Eg.
+  -- now rewrite id_cod, id_dom.
+  -- now rewrite comp_dom.
+  -- now rewrite comp_dom.
+  -- now rewrite comp_cod, comp_dom in H2.
+  -- now rewrite comp_cod.
+  -- now rewrite id_cod.
+  -- now rewrite id_cod, id_dom.
+  -- now rewrite compNtV_cod, compNtV_dom, id_cod, id_dom, Eg1.
+  -- now rewrite id_cod, id_dom.
+Defined.
